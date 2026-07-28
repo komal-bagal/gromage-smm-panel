@@ -1,6 +1,11 @@
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import Card from "../../components/ui/Card";
 import RecentOrders from "../../components/dashboard/RecentOrders";
+import OrdersChart from "../../components/dashboard/OrdersChart";
+import WalletSummary from "../../components/dashboard/WalletSummary";
+import TopServices from "../../components/dashboard/TopServices";
+import QuickActions from "../../components/dashboard/QuickActions";
+import RecentActivity from "../../components/dashboard/RecentActivity";
 
 import {
   FaShoppingCart,
@@ -44,6 +49,30 @@ function Dashboard() {
         />
 
       </div>
+
+      {/* Orders Chart */}
+
+      <div className="mt-8">
+        <OrdersChart />
+      </div>
+
+      <div className="mt-8">
+        <WalletSummary />
+      </div>
+
+      <div className="mt-8">
+        <TopServices />
+      </div>
+
+      <div className="mt-8">
+        <QuickActions />
+      </div>
+
+      <div className="mt-8">
+        <RecentActivity />
+      </div>
+
+      {/* Recent Orders */}
 
       <RecentOrders />
     </DashboardLayout>

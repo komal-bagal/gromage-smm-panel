@@ -8,7 +8,7 @@ import {
   FaSignOutAlt,
 } from "react-icons/fa";
 
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { FaPlusCircle } from "react-icons/fa";
 import { FaTicketAlt } from "react-icons/fa";
 import { FaCode } from "react-icons/fa";
@@ -17,6 +17,11 @@ import { FaUndoAlt } from "react-icons/fa";
 import { FaBullhorn } from "react-icons/fa";
 
 function Sidebar() {
+  const navigate = useNavigate();
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/login");
+  };
   return (
     <aside className="fixed left-0 top-0 w-64 h-screen bg-slate-900 text-white flex flex-col">
 
@@ -128,7 +133,9 @@ function Sidebar() {
 
 
       <div className="mt-auto p-4 border-t border-slate-700 bg-slate-900">
-        <button className="flex items-center gap-3 w-full bg-red-600 hover:bg-red-700 p-3 rounded-lg">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 w-full bg-red-600 hover:bg-red-700 p-3 rounded-lg">
           <FaSignOutAlt />
           Logout
         </button>
