@@ -32,13 +32,13 @@ function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto hide-scrollbar p-4">
         <div className="space-y-2">
-
+          
           <NavLink
-            to="/dashboard"
+            to="/new-order"
             className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800"
           >
-            <FaTachometerAlt />
-            Dashboard
+            <FaPlusCircle />
+            New Order
           </NavLink>
 
           <NavLink
@@ -47,14 +47,6 @@ function Sidebar() {
           >
             <FaShoppingCart />
             Orders
-          </NavLink>
-
-          <NavLink
-            to="/new-order"
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800"
-          >
-            <FaPlusCircle />
-            New Order
           </NavLink>
 
           <NavLink

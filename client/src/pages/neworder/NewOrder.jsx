@@ -1,4 +1,5 @@
 import { useState } from "react";
+import StatsCards from "../../components/dashboard/StatsCards";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import services from "../../data/services";
 
@@ -46,6 +47,8 @@ function NewOrder() {
       <h1 className="text-3xl font-bold mb-8">
         New Order
       </h1>
+
+      <StatsCards />
 
       <div className="bg-white rounded-xl shadow p-8">
 
@@ -190,11 +193,6 @@ function NewOrder() {
           />
 
         </div>
-
-        {/* Charge */}
-        <p className="text-red-500">
-  Rate: {selectedService.rate} | Quantity: {quantity} | Charge: {charge}
-</p>
 
         <div className="mb-6">
 
