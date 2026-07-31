@@ -1,0 +1,66 @@
+.register-container {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #27b5d0, #7edbd5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+
+.register-box {
+  width: 550px;
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+}
+
+
+.google-btn {
+  display: block;
+  margin: 0 auto 20px;
+  padding: 10px 20px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+
+form {
+  display: flex;
+  flex-direction: column;
+}
+
+
+label {
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #17375e;
+}
+
+
+input {
+  height: 35px;
+  margin-top: 6px;
+  border: none;
+  background: #e5f4f2;
+  border-radius: 7px;
+  padding: 0 10px;
+}
+
+
+button[type="submit"] {
+  margin-top: 15px;
+  height: 38px;
+  border: none;
+  border-radius: 8px;
+  background: #62cbd0;
+  color: white;
+  font-weight: bold;
+}
+
+
+.login-link {
+  text-align: center;
+  margin-top: 18px;
+}
