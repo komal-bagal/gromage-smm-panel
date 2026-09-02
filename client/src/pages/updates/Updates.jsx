@@ -1,7 +1,6 @@
 import DashboardLayout from "../../components/layout/DashboardLayout";
 
 function Updates() {
-
   const updates = [
     {
       id: 1,
@@ -31,46 +30,40 @@ function Updates() {
 
   return (
     <DashboardLayout>
-
-      <h1 className="text-3xl font-bold mb-8">
+      {/* Page Title */}
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-5 sm:mb-8">
         Latest Updates
       </h1>
 
-      <div className="space-y-6">
-
+      <div className="space-y-4 sm:space-y-6">
         {updates.map((item) => (
-
           <div
             key={item.id}
-            className="bg-white rounded-xl shadow p-6"
+            className="bg-white rounded-xl shadow p-4 sm:p-6"
           >
-
-            <div className="flex justify-between mb-3">
-
-              <h2 className="text-xl font-semibold">
+            {/* Title and Date */}
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-3">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
                 {item.title}
               </h2>
 
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 whitespace-nowrap">
                 {item.date}
               </span>
-
             </div>
 
-            <span className="inline-block bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm mb-4">
+            {/* Update Type */}
+            <span className="inline-block bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs sm:text-sm mb-3 sm:mb-4">
               {item.type}
             </span>
 
-            <p className="text-gray-600">
+            {/* Description */}
+            <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
               {item.description}
             </p>
-
           </div>
-
         ))}
-
       </div>
-
     </DashboardLayout>
   );
 }

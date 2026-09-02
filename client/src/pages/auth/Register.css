@@ -1,19 +1,20 @@
 .register-container {
   min-height: 100vh;
-  background: linear-gradient(180deg, #27b5d0, #7edbd5);
+  background: linear-gradient(180deg, #17375e, #7edbd5);
   display: flex;
   justify-content: center;
   align-items: center;
+  padding: 20px;
 }
 
-
 .register-box {
-  width: 550px;
+  width: 100%;
+  max-width: 550px;
   background: white;
   padding: 30px;
   border-radius: 15px;
+  box-sizing: border-box;
 }
-
 
 .google-btn {
   display: block;
@@ -22,34 +23,32 @@
   background: white;
   border: 1px solid #ddd;
   border-radius: 5px;
+  cursor: pointer;
 }
 
-
-form {
+.register-box form {
   display: flex;
   flex-direction: column;
 }
 
-
-label {
+.register-box label {
   margin-top: 12px;
   font-size: 14px;
   font-weight: 600;
   color: #17375e;
 }
 
-
-input {
+.register-box input {
   height: 35px;
   margin-top: 6px;
   border: none;
   background: #e5f4f2;
   border-radius: 7px;
   padding: 0 10px;
+  box-sizing: border-box;
 }
 
-
-button[type="submit"] {
+.register-box button[type="submit"] {
   margin-top: 15px;
   height: 38px;
   border: none;
@@ -57,10 +56,26 @@ button[type="submit"] {
   background: #62cbd0;
   color: white;
   font-weight: bold;
+  cursor: pointer;
 }
 
-
-.login-link {
+.register-box p {
   text-align: center;
   margin-top: 18px;
+}
+
+@media (max-width: 600px) {
+  .register-container {
+    padding: 15px;
+    align-items: flex-start;
+  }
+
+  .register-box {
+    padding: 20px;
+    margin-top: 20px;
+  }
+
+  .register-box input {
+    width: 100%;
+  }
 }
