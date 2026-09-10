@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      trim: true,
+      trim: true
     },
 
     email: {
@@ -13,28 +13,44 @@ const userSchema = new mongoose.Schema(
       required: true,
       unique: true,
       lowercase: true,
-      trim: true,
+      trim: true
     },
 
     password: {
       type: String,
-      required: true,
-      minlength: 6,
+      required: true
     },
 
     balance: {
       type: Number,
       default: 0,
+      min: 0
     },
 
     role: {
       type: String,
-      enum: ["user", "admin"],
-      default: "user",
+      enum: ["user", "admin", "reseller", "staff"],
+      default: "user"
     },
+
+    status: {
+      type: String,
+      enum: ["active", "suspended"],
+      default: "active"
+    },
+
+    resetPasswordToken: {
+      type: String,
+      default: null
+    },
+
+    resetPasswordExpires: {
+      type: Date,
+      default: null
+    }
   },
   {
-    timestamps: true,
+    timestamps: true
   }
 );
 
