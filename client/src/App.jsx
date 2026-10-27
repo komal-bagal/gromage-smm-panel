@@ -1,8 +1,12 @@
 import AppRoutes from "./routes/AppRoutes";
-import AddFunds from "./pages/wallet/AddFunds";
+import { ToastProvider } from "./components/ui/Toast";
 
 function App() {
-  return <AppRoutes />;
+  return (
+    <ToastProvider>
+      <AppRoutes />
+    </ToastProvider>
+  );
 }
 
 export default App;
