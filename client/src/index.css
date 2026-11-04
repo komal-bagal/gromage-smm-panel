@@ -10,3 +10,88 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ============================================================
+   Dropdown & Select Readability Across Light and Dark Themes
+   Guarantees high-contrast, fully readable options and selects
+   ============================================================ */
+
+/* 1. Base Native Select Styles */
+select {
+  color: #111827; /* Tailwind gray-900 */
+  background-color: #ffffff;
+  color-scheme: light;
+}
+
+/* 2. Global Option & Optgroup Readability */
+select option,
+select optgroup {
+  color: #111827 !important; /* Always high-contrast dark text */
+  background-color: #ffffff !important; /* Always clean white background */
+  font-weight: 500;
+  padding: 8px 12px;
+}
+
+/* 3. Option States */
+select option:checked {
+  color: #1d4ed8 !important; /* Tailwind blue-700 */
+  background-color: #eff6ff !important; /* Tailwind blue-50 */
+  font-weight: 600;
+}
+
+select option:hover,
+select option:focus {
+  color: #111827 !important;
+  background-color: #f3f4f6 !important; /* Tailwind gray-100 */
+}
+
+select option:disabled {
+  color: #9ca3af !important; /* Tailwind gray-400 */
+  background-color: #f9fafb !important; /* Tailwind gray-50 */
+}
+
+/* 4. Fix for Selects inside Dark Mode Contexts (.dark or [data-admin-theme="dark"]) */
+/* When an admin page is wrapped in .dark, force light-colored selects to keep dark text on white */
+.dark select:not([class*="bg-slate-9"]):not([class*="bg-slate-8"]):not([class*="bg-gray-9"]):not([class*="bg-gray-8"]),
+[data-admin-theme="dark"] select:not([class*="bg-slate-9"]):not([class*="bg-slate-8"]):not([class*="bg-gray-9"]):not([class*="bg-gray-8"]) {
+  color: #111827 !important;
+  background-color: #ffffff !important;
+  color-scheme: light;
+}
+
+/* 5. Dark-Themed Selects (Explicit Dark Controls) */
+select[class*="bg-slate-9"],
+select[class*="bg-slate-8"],
+select[class*="bg-gray-9"],
+select[class*="bg-gray-8"],
+.dark select[class*="dark:bg-slate-9"],
+.dark select[class*="dark:bg-slate-8"] {
+  color: #f8fafc;
+  background-color: #0f172a;
+}
+
+/* Ensure options inside dark selects also remain 100% readable in Windows popups */
+select[class*="bg-slate-9"] option,
+select[class*="bg-slate-8"] option,
+select[class*="bg-gray-9"] option,
+select[class*="bg-gray-8"] option,
+.dark select[class*="dark:bg-slate-9"] option,
+.dark select[class*="dark:bg-slate-8"] option {
+  color: #111827 !important;
+  background-color: #ffffff !important;
+}
+
+/* 6. Custom Dropdown Menus and Popovers */
+[role="menu"],
+[role="listbox"],
+.dropdown-menu {
+  color: #111827;
+  background-color: #ffffff;
+}
+
+.dark [role="menu"],
+.dark [role="listbox"],
+.dark .dropdown-menu {
+  color: #f8fafc;
+  background-color: #0f172a;
+}

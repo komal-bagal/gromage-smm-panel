@@ -15,12 +15,29 @@ import {
 } from "react-icons/fa";
 
 import { NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 
 function Sidebar({ isOpen, onClose }) {
   const navigate = useNavigate();
+  const { logout } = useAuth();
+  const { t } = useLanguage();
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    if (logout) {
+      logout();
+    } else {
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.removeItem("token");
+        sessionStorage.removeItem("user");
+        sessionStorage.removeItem("admin_token");
+      }
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem("token");
+        localStorage.removeItem("admin_token");
+        localStorage.removeItem("user");
+      }
+    }
     navigate("/login");
     onClose();
   };

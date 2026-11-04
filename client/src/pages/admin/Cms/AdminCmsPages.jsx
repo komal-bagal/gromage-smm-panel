@@ -1497,7 +1497,7 @@ function AdminCmsPages() {
             <select
               value={faqCategoryFilter}
               onChange={(e) => setFaqCategoryFilter(e.target.value)}
-              className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
             >
               <option value="all">All Categories</option>
               <option value="Orders">Orders</option>
@@ -2223,7 +2223,7 @@ function AdminCmsPages() {
             <select
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 font-medium cursor-pointer"
             >
               <option value="Published">Published (Live to Public Visitors)</option>
               <option value="Draft">Draft (Internal Only - Hidden from Visitors)</option>
@@ -2308,7 +2308,7 @@ function AdminCmsPages() {
             <select
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              className="w-full rounded-xl border border-gray-300 p-2 text-sm bg-white"
+              className="w-full rounded-xl border border-gray-300 p-2 text-sm bg-white text-gray-900 font-medium cursor-pointer"
             >
               <option value="Published">Published</option>
               <option value="Draft">Draft</option>
@@ -2348,7 +2348,7 @@ function AdminCmsPages() {
               <select
                 value={faqForm.category}
                 onChange={(e) => setFaqForm({ ...faqForm, category: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 p-2 text-xs bg-white"
+                className="w-full rounded-lg border border-gray-300 p-2 text-xs bg-white text-gray-900 font-medium cursor-pointer"
               >
                 <option value="Orders">Orders</option>
                 <option value="Payments">Payments</option>
@@ -2511,7 +2511,7 @@ function AdminCmsPages() {
             <select
               value={bannerForm.placement}
               onChange={(e) => setBannerForm({ ...bannerForm, placement: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 p-2 text-xs bg-white"
+              className="w-full rounded-lg border border-gray-300 p-2 text-xs bg-white text-gray-900 font-medium cursor-pointer"
             >
               <option value="Top Header Banner">Top Header Banner</option>
               <option value="Hero Banner">Hero Banner</option>

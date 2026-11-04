@@ -2239,7 +2239,7 @@ function AdminUsers() {
               <select
                 value={addForm.role}
                 onChange={(e) => setAddForm({ ...addForm, role: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 font-medium cursor-pointer"
               >
                 {ROLE_OPTIONS.map((r) => (
                   <option key={r} value={r}>
@@ -2256,7 +2256,7 @@ function AdminUsers() {
               <select
                 value={addForm.status}
                 onChange={(e) => setAddForm({ ...addForm, status: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 font-medium cursor-pointer"
               >
                 <option value="Active">Active</option>
                 <option value="Suspended">Suspended</option>
@@ -2325,7 +2325,7 @@ function AdminUsers() {
                       apiEnabled: e.target.value === "true",
                     })
                   }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 font-medium cursor-pointer"
                 >
                   <option value="true">Enable API Gateway Immediately</option>
                   <option value="false">Keep API Disabled Initially</option>
@@ -2397,7 +2397,7 @@ function AdminUsers() {
               <select
                 value={editForm.role}
                 onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 font-medium cursor-pointer"
               >
                 {ROLE_OPTIONS.map((r) => (
                   <option key={r} value={r}>
@@ -2414,7 +2414,7 @@ function AdminUsers() {
               <select
                 value={editForm.status}
                 onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 font-medium cursor-pointer"
               >
                 <option value="Active">Active</option>
                 <option value="Suspended">Suspended</option>
@@ -2470,7 +2470,7 @@ function AdminUsers() {
                       apiEnabled: e.target.value === "true",
                     })
                   }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 font-medium cursor-pointer"
                 >
                   <option value="true">API Enabled</option>
                   <option value="false">API Disabled</option>

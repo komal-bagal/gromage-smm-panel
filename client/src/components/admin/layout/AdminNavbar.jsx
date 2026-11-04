@@ -29,8 +29,12 @@ function AdminNavbar({ onMenuClick, currentTheme = "light", isDarkMode = false }
   ];
 
   const handleLogout = () => {
-    localStorage.removeItem("admin_token");
-    localStorage.removeItem("token");
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem("admin_token");
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("admin_token");
+    }
     navigate("/admin/login");
   };
 

@@ -15,8 +15,35 @@ const api = axios.create({
 // Request Interceptor: Attach JWT token
 api.interceptors.request.use(
   (config) => {
-    const token =
-      localStorage.getItem("admin_token") || localStorage.getItem("token");
+    // Determine whether this request belongs to Admin Portal or Customer Portal
+    const isCurrentPageAdmin =
+      typeof window !== "undefined" &&
+      window.location &&
+      window.location.pathname.startsWith("/admin");
+
+    const isAdminEndpoint =
+      config.url &&
+      (config.url.startsWith("/api/admin") ||
+        config.url.includes("/admin/") ||
+        config.url.startsWith("/api/tickets/admin/"));
+
+    const isAdminRequest = isCurrentPageAdmin || isAdminEndpoint || config.isAdmin;
+
+    let token;
+
+    if (isAdminRequest) {
+      // Admin requests strictly use admin_token
+      token =
+        (typeof sessionStorage !== "undefined" && sessionStorage.getItem("admin_token")) ||
+        (typeof localStorage !== "undefined" && localStorage.getItem("admin_token"));
+    } else {
+      // Customer requests strictly use customer token (sessionStorage first for tab isolation)
+      // Never leak or fall back to admin_token for customer requests!
+      token =
+        (typeof sessionStorage !== "undefined" && sessionStorage.getItem("token")) ||
+        (typeof localStorage !== "undefined" && localStorage.getItem("token"));
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -37,10 +64,15 @@ api.interceptors.response.use(
         ? error.response.data
         : null);
 
+    let fallbackMessage = error.message || "An unexpected error occurred.";
+    if (!error.response && error.message === "Network Error") {
+      fallbackMessage =
+        "Unable to connect to the server. Please check your internet connection or verify the server status.";
+    }
+
     const message =
       backendMessage ||
-      (status === 401 ? "Invalid email or password" : error.message) ||
-      "An unexpected error occurred.";
+      (status === 401 ? "Invalid email or password" : fallbackMessage);
 
     if (status === 401) {
       // Unauthorized: session token expired or invalid

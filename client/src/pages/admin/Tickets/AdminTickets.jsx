@@ -284,7 +284,20 @@ function AdminTickets() {
 
       try {
         const data = await adminService.getTickets();
-        setTickets(Array.isArray(data) ? data : []);
+        const ticketList = Array.isArray(data) ? data : [];
+        setTickets(ticketList);
+
+        const openCount = ticketList.filter(
+          (t) => (t.status || "").toLowerCase() === "open"
+        ).length;
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("admin_ticket_count_update", {
+              detail: { openCount },
+            })
+          );
+        }
+
         if (isManualRefresh) {
           addToast("Support tickets list refreshed", "success");
         }
@@ -443,8 +456,8 @@ function AdminTickets() {
         lastUpdated: "Just now",
       }));
 
-      setTickets((prev) =>
-        prev.map((t) =>
+      setTickets((prev) => {
+        const updated = prev.map((t) =>
           t.id === activeTicket.id
             ? {
                 ...t,
@@ -455,8 +468,21 @@ function AdminTickets() {
                 lastUpdated: "Just now",
               }
             : t
-        )
-      );
+        );
+
+        const openCount = updated.filter(
+          (t) => (t.status || "").toLowerCase() === "open"
+        ).length;
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("admin_ticket_count_update", {
+              detail: { openCount },
+            })
+          );
+        }
+
+        return updated;
+      });
 
       setReplyMessage("");
       setPendingAttachments([]);
@@ -487,13 +513,26 @@ function AdminTickets() {
         }));
       }
 
-      setTickets((prev) =>
-        prev.map((t) =>
+      setTickets((prev) => {
+        const updated = prev.map((t) =>
           t.id === ticketId
             ? { ...t, status: newStatus, lastUpdated: "Just now" }
             : t
-        )
-      );
+        );
+
+        const openCount = updated.filter(
+          (t) => (t.status || "").toLowerCase() === "open"
+        ).length;
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("admin_ticket_count_update", {
+              detail: { openCount },
+            })
+          );
+        }
+
+        return updated;
+      });
 
       addToast(`Ticket #${ticketId} marked as ${newStatus}`, "success");
     } catch {
@@ -815,7 +854,7 @@ function AdminTickets() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
             >
               <option value="all">All Statuses</option>
               {STATUS_OPTIONS.filter((s) => s !== "all").map((status) => (
@@ -829,7 +868,7 @@ function AdminTickets() {
             <select
               value={deptFilter}
               onChange={(e) => setDeptFilter(e.target.value)}
-              className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
             >
               {departmentOptions.map((dept) => (
                 <option key={dept} value={dept}>
@@ -842,7 +881,7 @@ function AdminTickets() {
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
             >
               <option value="all">All Priorities</option>
               {PRIORITY_OPTIONS.filter((p) => p !== "all").map((priority) => (
