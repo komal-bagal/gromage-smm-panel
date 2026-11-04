@@ -877,7 +877,7 @@ function AdminFinance() {
                 <select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
                 >
                   <option value="all">All Types</option>
                   <option value="Credit">Credits & Deposits (+)</option>
@@ -890,7 +890,7 @@ function AdminFinance() {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
                 >
                   <option value="all">All Statuses</option>
                   <option value="Completed">Completed / Success</option>
@@ -903,7 +903,7 @@ function AdminFinance() {
                 <select
                   value={methodFilter}
                   onChange={(e) => setMethodFilter(e.target.value)}
-                  className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
                 >
                   <option value="all">All Payment Channels</option>
                   <option value="UPI">UPI QR / VPA</option>
@@ -979,7 +979,7 @@ function AdminFinance() {
               <select
                 value={manualForm.userId}
                 onChange={handleUserSelectChange}
-                className={`w-full rounded-lg border px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`w-full rounded-lg border px-3 py-2 text-sm bg-white text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer ${
                   formErrors.user ? "border-rose-500" : "border-gray-300"
                 }`}
               >
@@ -1100,7 +1100,7 @@ function AdminFinance() {
             <select
               value={manualForm.method}
               onChange={(e) => setManualForm({ ...manualForm, method: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
               {manualForm.type === "Credit" ? (
                 <>

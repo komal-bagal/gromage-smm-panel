@@ -656,7 +656,7 @@ function AdminInvoices() {
                 <select
                   value={taxTypeFilter}
                   onChange={(e) => setTaxTypeFilter(e.target.value)}
-                  className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
                 >
                   <option value="all">All Tax Types</option>
                   <option value="intra">Intra-State (CGST + SGST)</option>
@@ -667,7 +667,7 @@ function AdminInvoices() {
                 <select
                   value={stateFilter}
                   onChange={(e) => setStateFilter(e.target.value)}
-                  className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
                 >
                   <option value="all">All Places of Supply</option>
                   <option value="Maharashtra">Maharashtra (27)</option>

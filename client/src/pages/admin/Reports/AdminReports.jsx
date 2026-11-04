@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   FaFileExport,
@@ -227,12 +226,12 @@ function AdminReports() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch report handler
+  // Fetch report handler for manual refresh and retries
   const fetchReport = useCallback(
     async (isManualRefresh = false) => {
       if (isManualRefresh) {
         setRefreshing(true);
-      } else if (!data) {
+      } else {
         setLoading(true);
       }
       setError(null);
@@ -259,12 +258,42 @@ function AdminReports() {
         setRefreshing(false);
       }
     },
-    [range, data, addToast]
+    [range, addToast]
   );
 
+  // Initial load and range changes (stable dependencies, no feedback loop on data)
   useEffect(() => {
-    fetchReport();
-  }, [fetchReport]);
+    let isMounted = true;
+
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await adminService.getReports("sales", range);
+        if (isMounted) {
+          if (!res) throw new Error("No data received from report service");
+          setData(res);
+        }
+      } catch (err) {
+        if (isMounted) {
+          const errMsg =
+            err?.message || "Failed to load financial & performance report";
+          setError(errMsg);
+          addToast(errMsg, "error");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [range, addToast]);
 
   // Derived calculations from active report data
   const salesBreakdown = useMemo(() => {
@@ -1190,9 +1219,16 @@ function AdminReports() {
           </div>
 
           <script>
-            window.onload = function() {
-              window.print();
-            };
+            window.addEventListener('load', function() {
+              setTimeout(function() {
+                try {
+                  window.focus();
+                  window.print();
+                } catch (e) {
+                  console.error(e);
+                }
+              }, 150);
+            });
           </script>
         </body>
         </html>

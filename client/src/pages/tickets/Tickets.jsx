@@ -130,7 +130,7 @@ function Tickets() {
             <select
               value={formData.priority}
               onChange={(e) => handleInputChange("priority", e.target.value)}
-              className="w-full border rounded-lg p-2 sm:p-3 text-sm sm:text-base outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg p-2 sm:p-3 text-sm sm:text-base outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 font-medium cursor-pointer"
             >
               <option value="Low">Low</option>
               <option value="Medium">Medium</option>

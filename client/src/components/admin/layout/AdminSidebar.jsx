@@ -1,4 +1,6 @@
+import { useState, useEffect, useCallback } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import adminService from "../../../services/adminService";
 import {
   FaTachometerAlt,
   FaUsers,
@@ -61,7 +63,7 @@ const navSections = [
   {
     title: "SUPPORT & COMMS",
     items: [
-      { name: "Tickets", path: "/admin/tickets", icon: <FaTicketAlt />, badge: "3" },
+      { name: "Tickets", path: "/admin/tickets", icon: <FaTicketAlt /> },
       { name: "Announcements", path: "/admin/notifications", icon: <FaBullhorn /> },
     ],
   },
@@ -92,10 +94,55 @@ const navSections = [
 
 function AdminSidebar({ isOpen, onClose }) {
   const navigate = useNavigate();
+  const [openTicketCount, setOpenTicketCount] = useState(null);
+
+  const fetchTicketCounts = useCallback(async () => {
+    try {
+      const counts = await adminService.getTicketCounts();
+      if (counts && typeof counts.open === "number") {
+        setOpenTicketCount(counts.open);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch admin ticket count:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTicketCounts();
+  }, [fetchTicketCounts]);
+
+  // Synchronize count on custom events, window focus, and background polling
+  useEffect(() => {
+    const handleCountUpdate = (e) => {
+      if (e?.detail && typeof e.detail.openCount === "number") {
+        setOpenTicketCount(e.detail.openCount);
+      } else {
+        fetchTicketCounts();
+      }
+    };
+
+    const handleFocus = () => {
+      fetchTicketCounts();
+    };
+
+    window.addEventListener("admin_ticket_count_update", handleCountUpdate);
+    window.addEventListener("focus", handleFocus);
+    const interval = setInterval(fetchTicketCounts, 30000);
+
+    return () => {
+      window.removeEventListener("admin_ticket_count_update", handleCountUpdate);
+      window.removeEventListener("focus", handleFocus);
+      clearInterval(interval);
+    };
+  }, [fetchTicketCounts]);
 
   const handleLogout = () => {
-    localStorage.removeItem("admin_token");
-    localStorage.removeItem("token");
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem("admin_token");
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("admin_token");
+    }
     navigate("/admin/login");
   };
 
@@ -169,33 +216,42 @@ function AdminSidebar({ isOpen, onClose }) {
                 {section.title}
               </p>
               <div className="space-y-0.5">
-                {section.items.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    onClick={onClose}
-                    className={({ isActive }) =>
-                      `flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                        isActive
-                          ? "bg-blue-600 text-white font-semibold shadow-sm"
-                          : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                      }`
-                    }
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <span className="text-sm shrink-0 opacity-80">
-                        {item.icon}
-                      </span>
-                      <span>{item.name}</span>
-                    </span>
+                {section.items.map((item) => {
+                  const badgeValue =
+                    item.path === "/admin/tickets"
+                      ? openTicketCount !== null && openTicketCount > 0
+                        ? String(openTicketCount)
+                        : null
+                      : item.badge;
 
-                    {item.badge && (
-                      <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-rose-500 text-white">
-                        {item.badge}
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      onClick={onClose}
+                      className={({ isActive }) =>
+                        `flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                          isActive
+                            ? "bg-blue-600 text-white font-semibold shadow-sm"
+                            : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                        }`
+                      }
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span className="text-sm shrink-0 opacity-80">
+                          {item.icon}
+                        </span>
+                        <span>{item.name}</span>
                       </span>
-                    )}
-                  </NavLink>
-                ))}
+
+                      {badgeValue && (
+                        <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-rose-500 text-white">
+                          {badgeValue}
+                        </span>
+                      )}
+                    </NavLink>
+                  );
+                })}
               </div>
             </div>
           ))}

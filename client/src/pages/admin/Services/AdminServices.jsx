@@ -825,7 +825,7 @@ function AdminServices() {
                   event.target.value
                 )
               }
-              className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
             >
               <option value="all">
                 All Categories
@@ -848,7 +848,7 @@ function AdminServices() {
                   event.target.value
                 )
               }
-              className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
             >
               <option value="all">
                 All Providers
@@ -871,7 +871,7 @@ function AdminServices() {
                   event.target.value
                 )
               }
-              className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
             >
               <option value="all">
                 All Statuses
@@ -959,7 +959,7 @@ function AdminServices() {
                     category: event.target.value,
                   }))
                 }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 font-medium cursor-pointer"
               >
                 <option value="">
                   Select category
@@ -989,7 +989,7 @@ function AdminServices() {
                     provider: event.target.value,
                   }))
                 }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 font-medium cursor-pointer"
               >
                 <option value="">
                   Select provider
@@ -1099,7 +1099,7 @@ function AdminServices() {
                     status: event.target.value,
                   }))
                 }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 font-medium cursor-pointer"
               >
                 <option value="Active">
                   Active
@@ -1213,7 +1213,7 @@ function AdminServices() {
                   type: event.target.value,
                 }))
               }
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 font-medium cursor-pointer"
             >
               <option value="percent">
                 Percentage Markup (+% increase)
@@ -1303,7 +1303,7 @@ function AdminServices() {
                     event.target.value,
                 }))
               }
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 font-medium cursor-pointer"
             >
               <option value="">
                 Select provider

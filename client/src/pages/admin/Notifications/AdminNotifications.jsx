@@ -1151,7 +1151,7 @@ function AdminNotifications() {
                     <select
                       value={audienceFilter}
                       onChange={(e) => setAudienceFilter(e.target.value)}
-                      className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
                     >
                       <option value="all">All Audiences</option>
                       <option value="All Users">All Users</option>
@@ -1163,7 +1163,7 @@ function AdminNotifications() {
                     <select
                       value={formatFilter}
                       onChange={(e) => setFormatFilter(e.target.value)}
-                      className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
                     >
                       <option value="all">All Formats</option>
                       <option value="banner">Header Banner</option>
@@ -1174,7 +1174,7 @@ function AdminNotifications() {
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
                     >
                       <option value="all">All Statuses</option>
                       <option value="Active">Active Only</option>
@@ -1225,7 +1225,7 @@ function AdminNotifications() {
               <select
                 value={templateChannelFilter}
                 onChange={(e) => setTemplateChannelFilter(e.target.value)}
-                className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
               >
                 <option value="all">All Channels</option>
                 <option value="Email">Email</option>
@@ -1238,7 +1238,7 @@ function AdminNotifications() {
               <select
                 value={templateStatusFilter}
                 onChange={(e) => setTemplateStatusFilter(e.target.value)}
-                className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
               >
                 <option value="all">All Statuses</option>
                 <option value="Active">Active</option>
@@ -1422,7 +1422,7 @@ function AdminNotifications() {
                           email: { ...settings.email, provider: e.target.value },
                         })
                       }
-                      className="w-full rounded-lg border border-gray-300 p-2 text-xs bg-white focus:ring-1 focus:ring-blue-500"
+                      className="w-full rounded-lg border border-gray-300 p-2 text-xs bg-white text-gray-900 font-medium focus:ring-1 focus:ring-blue-500 cursor-pointer"
                     >
                       <option value="Custom SMTP">Custom SMTP Server</option>
                       <option value="SendGrid">SendGrid API</option>
@@ -1471,7 +1471,7 @@ function AdminNotifications() {
                           email: { ...settings.email, encryption: e.target.value },
                         })
                       }
-                      className="w-full rounded-lg border border-gray-300 p-2 text-xs bg-white focus:ring-1 focus:ring-blue-500"
+                      className="w-full rounded-lg border border-gray-300 p-2 text-xs bg-white text-gray-900 font-medium focus:ring-1 focus:ring-blue-500 cursor-pointer"
                     >
                       <option value="TLS">TLS</option>
                       <option value="SSL">SSL</option>
@@ -1551,7 +1551,7 @@ function AdminNotifications() {
                           whatsapp: { ...settings.whatsapp, provider: e.target.value },
                         })
                       }
-                      className="w-full rounded-lg border border-gray-300 p-2 text-xs bg-white"
+                      className="w-full rounded-lg border border-gray-300 p-2 text-xs bg-white text-gray-900 font-medium cursor-pointer"
                     >
                       <option value="Meta Cloud API">Meta Cloud API (Official)</option>
                       <option value="Wati">Wati</option>
@@ -1728,7 +1728,7 @@ function AdminNotifications() {
                           sms: { ...settings.sms, provider: e.target.value },
                         })
                       }
-                      className="w-full rounded-lg border border-gray-300 p-2 text-xs bg-white"
+                      className="w-full rounded-lg border border-gray-300 p-2 text-xs bg-white text-gray-900 font-medium cursor-pointer"
                     >
                       <option value="Fast2SMS">Fast2SMS (India)</option>
                       <option value="Twilio">Twilio</option>
@@ -1882,7 +1882,7 @@ function AdminNotifications() {
                 <select
                   value={historyChannelFilter}
                   onChange={(e) => setHistoryChannelFilter(e.target.value)}
-                  className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
                 >
                   <option value="all">All Channels</option>
                   <option value="Email">Email</option>
@@ -1895,7 +1895,7 @@ function AdminNotifications() {
                 <select
                   value={historyStatusFilter}
                   onChange={(e) => setHistoryStatusFilter(e.target.value)}
-                  className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="text-xs py-2 px-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 font-medium cursor-pointer"
                 >
                   <option value="all">All Statuses</option>
                   <option value="Delivered">Delivered</option>
@@ -2002,7 +2002,7 @@ function AdminNotifications() {
               <select
                 value={formData.target}
                 onChange={(e) => setFormData({ ...formData, target: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               >
                 <option value="All Users">All Users</option>
                 <option value="Customers Only">Customers Only</option>
@@ -2018,7 +2018,7 @@ function AdminNotifications() {
               <select
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               >
                 <option value="banner">Header Banner</option>
                 <option value="popup">Modal Popup</option>
@@ -2033,7 +2033,7 @@ function AdminNotifications() {
               <select
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               >
                 <option value="Active">Active (Published)</option>
                 <option value="Inactive">Inactive (Draft)</option>
@@ -2246,7 +2246,7 @@ function AdminNotifications() {
                     eventLabel: eventMap[e.target.value] || e.target.value,
                   });
                 }}
-                className="w-full rounded-lg border border-gray-300 p-2 text-sm bg-white"
+                className="w-full rounded-lg border border-gray-300 p-2 text-sm bg-white text-gray-900 font-medium cursor-pointer"
               >
                 <option value="order_created">Order Created</option>
                 <option value="order_completed">Order Completed</option>
@@ -2268,7 +2268,7 @@ function AdminNotifications() {
                 onChange={(e) =>
                   setTemplateForm({ ...templateForm, channel: e.target.value })
                 }
-                className="w-full rounded-lg border border-gray-300 p-2 text-sm bg-white"
+                className="w-full rounded-lg border border-gray-300 p-2 text-sm bg-white text-gray-900 font-medium cursor-pointer"
               >
                 <option value="Email">Email</option>
                 <option value="SMS">SMS</option>

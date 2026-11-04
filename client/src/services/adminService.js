@@ -2984,8 +2984,12 @@ const login = async (credentials) => {
 
   const user = data.user || data.data?.user || data;
 
-  localStorage.setItem("admin_token", token);
-  localStorage.setItem("token", token);
+  if (typeof sessionStorage !== "undefined") {
+    sessionStorage.setItem("admin_token", token);
+  }
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem("admin_token", token);
+  }
 
   return {
     success: true,
@@ -5597,6 +5601,40 @@ const getTickets = async (params = {}) => {
 };
 
 /**
+ * Fetch Ticket Counts (Admin or User)
+ * Real API: GET /api/tickets/admin/counts or GET /api/tickets/counts
+ */
+const getTicketCounts = async () => {
+  try {
+    const res = await api.get("/api/tickets/admin/counts");
+    if (res.data?.success && res.data?.counts) {
+      return res.data.counts;
+    }
+  } catch {
+    // Fallback if not admin or endpoint fails
+  }
+  try {
+    const res = await api.get("/api/tickets/counts");
+    if (res.data?.success && res.data?.counts) {
+      return res.data.counts;
+    }
+  } catch {
+    // Fallback to deriving from getTickets
+  }
+  try {
+    const tickets = await getTickets();
+    const total = tickets.length;
+    const open = tickets.filter((t) => (t.status || "").toLowerCase() === "open").length;
+    const answered = tickets.filter((t) => (t.status || "").toLowerCase() === "answered").length;
+    const closed = tickets.filter((t) => (t.status || "").toLowerCase() === "closed").length;
+    return { total, open, answered, closed };
+  } catch (err) {
+    console.error("Failed to fetch ticket counts:", err);
+    return { total: 0, open: 0, answered: 0, closed: 0 };
+  }
+};
+
+/**
  * Fetch User Tickets specifically
  * Real API: GET /api/ticket
  */
@@ -7140,6 +7178,7 @@ const adminService = {
 
   // Tickets
   getTickets,
+  getTicketCounts,
   getUserTickets,
   createTicket,
   getTicket,
