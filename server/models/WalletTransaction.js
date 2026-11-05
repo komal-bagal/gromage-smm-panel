@@ -1,4 +1,9 @@
+
 const mongoose = require("mongoose");
+
+// ======================================================
+// WALLET TRANSACTION SCHEMA
+// ======================================================
 
 const walletTransactionSchema = new mongoose.Schema(
   {
@@ -6,14 +11,14 @@ const walletTransactionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true
+      index: true,
     },
 
     walletId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Wallet",
       required: true,
-      index: true
+      index: true,
     },
 
     transactionType: {
@@ -24,93 +29,108 @@ const walletTransactionSchema = new mongoose.Schema(
         "recharge",
         "refund",
         "cashback",
-        "referral_commission"
+        "referral_commission",
       ],
-      required: true
+      required: true,
     },
 
     reference: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
     },
 
     amount: {
       type: Number,
       required: true,
-      min: 0
+      min: 0,
     },
 
     balanceBefore: {
       type: Number,
       required: true,
-      min: 0
+      min: 0,
     },
 
     balanceAfter: {
       type: Number,
       required: true,
-      min: 0
+      min: 0,
     },
 
     status: {
       type: String,
-      enum: [
-        "pending",
-        "completed",
-        "failed",
-        "reversed"
-      ],
-      default: "completed"
-    }
+      enum: ["pending", "completed", "failed", "reversed"],
+      default: "completed",
+    },
   },
   {
-    timestamps: true
+    timestamps: true,
   }
 );
 
+// ======================================================
+// PREVENT DUPLICATE REFUNDS
+// ======================================================
+//
+// Only refund transactions are subject to this unique index.
+//
+// For any given reference, only one transaction with
+// transactionType: "refund" can exist.
+//
+// Credit, debit, recharge, cashback, and other transaction
+// types can reuse the same reference.
+//
+// This protects against duplicate refund ledger entries.
+// Wallet balance changes must also be performed inside
+// the same MongoDB transaction as the ledger insertion.
+// ======================================================
 
-/*
- * Prevent duplicate financial transactions
- * with the same reference and transaction type.
- *
- * Example:
- * REFUND-ORDER-68abc123 + refund
- *
- * The same refund cannot be inserted twice.
- */
 walletTransactionSchema.index(
   {
     reference: 1,
-    transactionType: 1
+    transactionType: 1,
   },
   {
-    unique: true
+    unique: true,
+    name: "unique_refund_reference",
+    partialFilterExpression: {
+      transactionType: "refund",
+    },
   }
 );
 
+// ======================================================
+// USER TRANSACTION HISTORY INDEX
+// ======================================================
 
-/*
- * Useful indexes for wallet transaction history
- * and user-based transaction queries.
- */
 walletTransactionSchema.index({
   userId: 1,
-  createdAt: -1
+  createdAt: -1,
 });
+
+// ======================================================
+// WALLET TRANSACTION HISTORY INDEX
+// ======================================================
 
 walletTransactionSchema.index({
   walletId: 1,
-  createdAt: -1
+  createdAt: -1,
 });
+
+// ======================================================
+// STATUS + DATE INDEX
+// ======================================================
 
 walletTransactionSchema.index({
   status: 1,
-  createdAt: -1
+  createdAt: -1,
 });
 
+// ======================================================
+// MODEL EXPORT
+// ======================================================
 
-module.exports = mongoose.model(
-  "WalletTransaction",
-  walletTransactionSchema
-);
+module.exports =
+  mongoose.models.WalletTransaction ||
+  mongoose.model("WalletTransaction", walletTransactionSchema);

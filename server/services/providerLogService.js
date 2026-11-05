@@ -1,111 +1,122 @@
-// ======================================================
-// PROVIDER LOG SERVICE
-// ======================================================
-
+const mongoose = require("mongoose");
 const ProviderLog = require("../models/ProviderLog");
 
 // ======================================================
-// SENSITIVE FIELDS
+// SECRET SANITIZATION
 // ======================================================
 
-const SENSITIVE_FIELDS = [
+const SENSITIVE_FIELDS = new Set([
   "key",
-  "apiKey",
-  "api_key",
+  "apikey",
   "secret",
-  "clientSecret",
-  "client_secret",
+  "clientsecret",
   "password",
   "token",
-  "accessToken",
-  "refreshToken",
+  "accesstoken",
+  "refreshtoken",
   "authorization",
   "auth",
   "credential",
-  "credentials"
-];
+  "credentials",
+  "cookie",
+  "setcookie",
+  "signature",
+  "privatekey"
+]);
+
+const normalizeFieldName = (key) =>
+  String(key).toLowerCase().replace(/[^a-z0-9]/g, "");
+
+const isSensitiveField = (key) => {
+  const normalized = normalizeFieldName(key);
+
+  return (
+    SENSITIVE_FIELDS.has(normalized) ||
+    normalized.endsWith("apikey") ||
+    normalized.endsWith("secret") ||
+    normalized.endsWith("token") ||
+    normalized.endsWith("password")
+  );
+};
+
+const sanitizeText = (value) => {
+  if (typeof value !== "string") return value;
+
+  return value
+    .replace(
+      /\b(api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|authorization|secret)\s*[:=]\s*("[^"]*"|'[^']*'|[^\s,;&]+)/gi,
+      "$1=[REDACTED]"
+    )
+    .replace(/\bBearer\s+\S+/gi, "Bearer [REDACTED]");
+};
+
+const sanitizePayload = (payload) => {
+  if (payload === null || payload === undefined) return null;
+
+  if (typeof payload === "string") return sanitizeText(payload);
+
+  if (typeof payload !== "object") return payload;
+
+  if (Array.isArray(payload)) {
+    return payload.map(sanitizePayload);
+  }
+
+  const sanitized = {};
+
+  for (const [key, value] of Object.entries(payload)) {
+    sanitized[key] = isSensitiveField(key)
+      ? "[REDACTED]"
+      : sanitizePayload(value);
+  }
+
+  return sanitized;
+};
 
 // ======================================================
-// NORMALIZE OPERATION
+// ENDPOINT AND OPERATION NORMALIZATION
 // ======================================================
+
+const sanitizeEndpoint = (endpoint) => {
+  const value = String(endpoint || "").trim();
+
+  try {
+    const url = new URL(value);
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return value.split(/[?#]/, 1)[0];
+  }
+};
 
 const normalizeOperation = (operation) => {
-  const value = String(
-    operation || "unknown"
-  )
+  const value = String(operation || "unknown")
     .trim()
     .toLowerCase();
 
   const operationMap = {
     services: "services",
     service: "services",
-
     create_order: "create_order",
     createorder: "create_order",
     "create-order": "create_order",
-
     status: "status",
-
     refill: "refill",
-
     cancel: "cancel",
-
     balance: "balance",
-
     unknown: "unknown"
   };
 
   return operationMap[value] || "unknown";
 };
 
-// ======================================================
-// SANITIZE PAYLOAD
-// ======================================================
-
-const sanitizePayload = (payload) => {
-  if (
-    payload === null ||
-    payload === undefined
-  ) {
+const nullableNumber = (value) => {
+  if (value === null || value === undefined || value === "") {
     return null;
   }
 
-  if (
-    typeof payload !== "object"
-  ) {
-    return payload;
-  }
-
-  if (Array.isArray(payload)) {
-    return payload.map(
-      (item) =>
-        sanitizePayload(item)
-    );
-  }
-
-  const sanitized = {};
-
-  for (const [key, value] of Object.entries(
-    payload
-  )) {
-    if (
-      SENSITIVE_FIELDS.some(
-        (field) =>
-          field.toLowerCase() ===
-          key.toLowerCase()
-      )
-    ) {
-      sanitized[key] =
-        "[REDACTED]";
-
-      continue;
-    }
-
-    sanitized[key] =
-      sanitizePayload(value);
-  }
-
-  return sanitized;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 };
 
 // ======================================================
@@ -127,112 +138,73 @@ const createProviderLog = async ({
   durationMs = null,
   attempt = 1,
   maxAttempts = 1
-}) => {
+} = {}) => {
   try {
-    if (!providerId) {
+    if (!providerId || !endpoint) {
       console.error(
-        "PROVIDER LOG: providerId is required"
+        "Provider log skipped: provider ID or endpoint is missing"
       );
-
       return null;
     }
 
-    if (!endpoint) {
-      console.error(
-        "PROVIDER LOG: endpoint is required"
-      );
-
+    // Avoid Mongoose buffering timeouts when disconnected.
+    // Logging resumes automatically when MongoDB is connected.
+    if (mongoose.connection.readyState !== 1) {
       return null;
     }
 
-    const sanitizedRequest =
-      sanitizePayload(
-        requestPayload
+    if (!ProviderLog || typeof ProviderLog.create !== "function") {
+      console.error(
+        "Provider log skipped: ProviderLog model is unavailable"
       );
+      return null;
+    }
 
-    const sanitizedResponse =
-      sanitizePayload(
-        responsePayload
-      );
+    const status = nullableNumber(httpStatus);
+    const duration = nullableNumber(durationMs);
+    const attemptNumber = Number(attempt);
+    const maxAttemptNumber = Number(maxAttempts);
 
-    const log =
-      await ProviderLog.create({
-        providerId,
+    const logData = {
+      providerId,
+      orderId,
+      operation: normalizeOperation(operation),
+      method: String(method || "POST").toUpperCase(),
+      endpoint: sanitizeEndpoint(endpoint),
+      requestPayload: sanitizePayload(requestPayload),
+      httpStatus:
+        status !== null && Number.isInteger(status)
+          ? status
+          : null,
+      responsePayload: sanitizePayload(responsePayload),
+      success: Boolean(success),
+      errorMessage: errorMessage
+        ? sanitizeText(String(errorMessage)).slice(0, 2000)
+        : null,
+      errorCode: errorCode
+        ? sanitizeText(String(errorCode)).slice(0, 200)
+        : null,
+      durationMs:
+        duration !== null && duration >= 0
+          ? duration
+          : null,
+      attempt:
+        Number.isInteger(attemptNumber) && attemptNumber > 0
+          ? attemptNumber
+          : 1,
+      maxAttempts:
+        Number.isInteger(maxAttemptNumber) &&
+        maxAttemptNumber > 0
+          ? maxAttemptNumber
+          : 1
+    };
 
-        orderId,
-
-        operation:
-          normalizeOperation(
-            operation
-          ),
-
-        method:
-          String(
-            method || "POST"
-          ).toUpperCase(),
-
-        endpoint,
-
-        requestPayload:
-          sanitizedRequest,
-
-        httpStatus:
-          Number.isFinite(
-            Number(httpStatus)
-          )
-            ? Number(httpStatus)
-            : null,
-
-        responsePayload:
-          sanitizedResponse,
-
-        success:
-          Boolean(success),
-
-        errorMessage:
-          errorMessage
-            ? String(errorMessage)
-            : null,
-
-        errorCode:
-          errorCode
-            ? String(errorCode)
-            : null,
-
-        durationMs:
-          Number.isFinite(
-            Number(durationMs)
-          )
-            ? Number(durationMs)
-            : null,
-
-        attempt:
-          Number.isInteger(
-            Number(attempt)
-          ) &&
-          Number(attempt) > 0
-            ? Number(attempt)
-            : 1,
-
-        maxAttempts:
-          Number.isInteger(
-            Number(maxAttempts)
-          ) &&
-          Number(maxAttempts) > 0
-            ? Number(maxAttempts)
-            : 1
-      });
-
-    return log;
-
+    return await ProviderLog.create(logData);
   } catch (error) {
-    // --------------------------------------------------
-    // LOGGING FAILURE MUST NOT BREAK MAIN FLOW
-    // --------------------------------------------------
-
+    // Do not log the request payload, response body, or full error object.
     console.error(
-      "PROVIDER LOG CREATION FAILED:",
-      error.message
+      "Provider log creation failed:",
+      sanitizeText(error?.message || "Unknown logging error")
     );
 
     return null;
@@ -240,84 +212,32 @@ const createProviderLog = async ({
 };
 
 // ======================================================
-// LOG PROVIDER SUCCESS
+// SUCCESS AND FAILURE HELPERS
 // ======================================================
 
-const logProviderSuccess = async ({
-  providerId,
-  orderId = null,
-  operation,
-  method = "POST",
-  endpoint,
-  requestPayload = null,
-  httpStatus = 200,
-  responsePayload = null,
-  durationMs = null,
-  attempt = 1,
-  maxAttempts = 1
-}) => {
-  return await createProviderLog({
-    providerId,
-    orderId,
-    operation,
-    method,
-    endpoint,
-    requestPayload,
-    httpStatus,
-    responsePayload,
+const logProviderSuccess = async (options = {}) =>
+  createProviderLog({
+    ...options,
     success: true,
     errorMessage: null,
-    errorCode: null,
-    durationMs,
-    attempt,
-    maxAttempts
+    errorCode: null
   });
-};
 
-// ======================================================
-// LOG PROVIDER FAILURE
-// ======================================================
-
-const logProviderFailure = async ({
-  providerId,
-  orderId = null,
-  operation,
-  method = "POST",
-  endpoint,
-  requestPayload = null,
-  httpStatus = null,
-  responsePayload = null,
-  errorMessage = null,
-  errorCode = null,
-  durationMs = null,
-  attempt = 1,
-  maxAttempts = 1
-}) => {
-  return await createProviderLog({
-    providerId,
-    orderId,
-    operation,
-    method,
-    endpoint,
-    requestPayload,
-    httpStatus,
-    responsePayload,
-    success: false,
-    errorMessage,
-    errorCode,
-    durationMs,
-    attempt,
-    maxAttempts
+const logProviderFailure = async (options = {}) =>
+  createProviderLog({
+    ...options,
+    success: false
   });
-};
 
 // ======================================================
-// EXPORT
+// EXPORTS
 // ======================================================
 
 module.exports = {
   sanitizePayload,
   createProviderLog,
   logProviderSuccess,
-  logProviderFailure
+  logProviderFailure,
+  normalizeOperation,
+  sanitizeEndpoint
 };

@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const Order = require("../models/Order");
@@ -9,63 +10,39 @@ const {
 } = require("./providerApiService");
 
 // ======================================================
-// MAP PROVIDER STATUS TO LOCAL ORDER STATUS
+// STATUS MAPPING
 // ======================================================
 
 const mapProviderStatus = (providerStatus) => {
+  if (
+    typeof providerStatus !== "string" ||
+    !providerStatus.trim()
+  ) {
+    return null;
+  }
 
-  const status =
-    String(providerStatus || "")
-      .trim()
-      .toLowerCase();
+  const status = providerStatus.trim().toLowerCase();
 
   const statusMap = {
-
-    pending:
-      "pending",
-
-    processing:
-      "processing",
-
-    "in progress":
-      "in_progress",
-
-    in_progress:
-      "in_progress",
-
-    completed:
-      "completed",
-
-    complete:
-      "completed",
-
-    partial:
-      "partial",
-
-    canceled:
-      "canceled",
-
-    cancelled:
-      "canceled",
-
-    cancel:
-      "canceled",
-
-    refunded:
-      "refunded",
-
-    failed:
-      "failed"
+    pending: "pending",
+    processing: "processing",
+    "in progress": "in_progress",
+    in_progress: "in_progress",
+    completed: "completed",
+    complete: "completed",
+    partial: "partial",
+    canceled: "canceled",
+    cancelled: "canceled",
+    cancel: "canceled",
+    refunded: "refunded",
+    failed: "failed"
   };
 
-  return (
-    statusMap[status] ||
-    null
-  );
+  return statusMap[status] || null;
 };
 
 // ======================================================
-// TERMINAL ORDER STATUS
+// TERMINAL STATUSES
 // ======================================================
 
 const TERMINAL_STATUSES = new Set([
@@ -77,536 +54,384 @@ const TERMINAL_STATUSES = new Set([
 ]);
 
 // ======================================================
-// SAFE NUMBER HELPER
+// SAFE NON-NEGATIVE NUMBER
 // ======================================================
 
-const getSafeNumber = (
-  value,
-  fallback = 0
-) => {
+const getSafeNumber = (value, fallback = 0) => {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return fallback;
+  }
 
-  const number =
-    Number(value);
+  const number = Number(value);
 
-  return Number.isFinite(number)
+  return Number.isFinite(number) && number >= 0
     ? number
     : fallback;
 };
 
 // ======================================================
-// CHECK VALID OBJECT ID
+// OBJECT ID VALIDATION
 // ======================================================
 
-const isValidObjectId = (
-  id
-) => {
+const isValidObjectId = (id) => {
+  if (!id) {
+    return false;
+  }
 
-  return mongoose.Types.ObjectId.isValid(
-    id
+  return mongoose.Types.ObjectId.isValid(String(id));
+};
+
+// ======================================================
+// CREATE WRAPPED PROVIDER ERROR
+// ======================================================
+
+const createStatusSyncError = (error) => {
+  const wrappedError = new Error(
+    `Unable to fetch provider order status: ${
+      error?.message || "Unknown provider error"
+    }`
   );
+
+  wrappedError.code =
+    error?.code || "PROVIDER_STATUS_SYNC_ERROR";
+
+  wrappedError.retryable =
+    typeof error?.retryable === "boolean"
+      ? error.retryable
+      : false;
+
+  // Preserve Retry-After only when a real value is present.
+  // null and empty strings must not become zero milliseconds.
+  if (
+    error?.retryAfterMs !== undefined &&
+    error.retryAfterMs !== null &&
+    error.retryAfterMs !== ""
+  ) {
+    const retryAfterMs = Number(error.retryAfterMs);
+
+    if (
+      Number.isFinite(retryAfterMs) &&
+      retryAfterMs >= 0
+    ) {
+      wrappedError.retryAfterMs = retryAfterMs;
+    }
+  }
+
+  return wrappedError;
+};
+
+// ======================================================
+// CREATE NON-RETRYABLE ERROR
+// ======================================================
+
+const createNonRetryableError = (message, code) => {
+  const error = new Error(message);
+
+  error.code = code;
+  error.retryable = false;
+
+  return error;
 };
 
 // ======================================================
 // SYNC SINGLE ORDER STATUS
 // ======================================================
 
-const syncOrderProviderStatus = async ({
-  orderId
-}) => {
-
+const syncOrderProviderStatus = async ({ orderId } = {}) => {
   // ----------------------------------------------------
-  // VALIDATION
+  // 1. VALIDATE ORDER ID
   // ----------------------------------------------------
 
   if (!orderId) {
-
-    throw new Error(
-      "Order ID is required"
+    throw createNonRetryableError(
+      "Order ID is required",
+      "ORDER_ID_REQUIRED"
     );
   }
 
   if (!isValidObjectId(orderId)) {
-
-    throw new Error(
-      "Invalid Order ID"
+    throw createNonRetryableError(
+      "Invalid Order ID",
+      "INVALID_ORDER_ID"
     );
   }
 
   // ----------------------------------------------------
-  // FIND ORDER
+  // 2. FIND ORDER
   // ----------------------------------------------------
 
-  const order =
-    await Order.findById(
-      orderId
-    );
+  const order = await Order.findById(orderId);
 
   if (!order) {
-
-    throw new Error(
-      "Order not found"
+    throw createNonRetryableError(
+      "Order not found",
+      "ORDER_NOT_FOUND"
     );
   }
 
-  // ----------------------------------------------------
-  // PROVIDER VALIDATION
-  // ----------------------------------------------------
-
   if (!order.providerId) {
-
-    throw new Error(
-      "Order does not have a provider"
+    throw createNonRetryableError(
+      "Order does not have a provider",
+      "ORDER_PROVIDER_MISSING"
     );
   }
 
   if (!order.providerOrderId) {
-
-    throw new Error(
-      "Provider order ID is missing"
+    throw createNonRetryableError(
+      "Provider order ID is missing",
+      "PROVIDER_ORDER_ID_MISSING"
     );
   }
 
   // ----------------------------------------------------
-  // FIND PROVIDER
+  // 3. FIND PROVIDER
   // ----------------------------------------------------
 
-  const provider =
-    await Provider.findById(
-      order.providerId
-    ).select(
-      "+apiKey"
-    );
+  const provider = await Provider.findById(order.providerId)
+    .select("+apiKey");
 
   if (!provider) {
-
-    throw new Error(
-      "Provider not found"
+    throw createNonRetryableError(
+      "Provider not found",
+      "PROVIDER_NOT_FOUND"
     );
   }
-
-  // ----------------------------------------------------
-  // PROVIDER STATUS VALIDATION
-  // ----------------------------------------------------
 
   if (
-    String(provider.status || "")
-      .toLowerCase() !==
-    "active"
+    String(provider.status || "").toLowerCase() !== "active"
   ) {
+    throw createNonRetryableError(
+      "Provider is inactive",
+      "PROVIDER_INACTIVE"
+    );
+  }
 
-    throw new Error(
-      "Provider is inactive"
+  if (
+    typeof provider.apiKey !== "string" ||
+    !provider.apiKey.trim()
+  ) {
+    throw createNonRetryableError(
+      "Provider API key is missing",
+      "PROVIDER_API_KEY_MISSING"
     );
   }
 
   // ----------------------------------------------------
-  // PROVIDER API KEY VALIDATION
+  // 4. LOG SYNC REQUEST
   // ----------------------------------------------------
 
-  if (!provider.apiKey) {
-
-    throw new Error(
-      "Provider API key is missing"
-    );
-  }
-
-  // ----------------------------------------------------
-  // LOG SYNC REQUEST
-  // ----------------------------------------------------
-
-  console.log(
-    "===================================="
-  );
-
-  console.log(
-    "SYNCING ORDER PROVIDER STATUS"
-  );
-
-  console.log(
-    "LOCAL ORDER ID:",
-    order._id.toString()
-  );
-
-  console.log(
-    "PROVIDER:",
-    provider.name
-  );
-
-  console.log(
-    "PROVIDER ORDER ID:",
-    order.providerOrderId
-  );
-
-  console.log(
-    "CURRENT LOCAL STATUS:",
-    order.status
-  );
-
-  console.log(
-    "===================================="
-  );
+  console.log("Provider status sync started", {
+    orderId: order._id.toString(),
+    providerOrderId: order.providerOrderId,
+    currentStatus: order.status
+  });
 
   // ----------------------------------------------------
-  // FETCH PROVIDER STATUS
+  // 5. FETCH PROVIDER STATUS
   // ----------------------------------------------------
 
   let providerResult;
 
   try {
-
-    providerResult =
-      await fetchProviderOrderStatus({
-
-        provider,
-
-        providerOrderId:
-          order.providerOrderId,
-
-        orderId:
-          order._id
-
-      });
-
+    providerResult = await fetchProviderOrderStatus({
+      provider,
+      providerOrderId: order.providerOrderId,
+      orderId: order._id
+    });
   } catch (error) {
+    console.error("Provider status fetch failed", {
+      orderId: order._id.toString(),
+      message: error.message,
+      code: error.code || "PROVIDER_STATUS_SYNC_ERROR",
+      retryable: error.retryable,
+      retryAfterMs: error.retryAfterMs
+    });
 
-    console.error(
-      "Provider status fetch failed:",
-      error.message
-    );
-
-    throw new Error(
-      `Unable to fetch provider order status: ${error.message}`
-    );
+    // Preserve retry classification and Retry-After.
+    throw createStatusSyncError(error);
   }
 
   // ----------------------------------------------------
-  // VALIDATE PROVIDER RESPONSE
+  // 6. VALIDATE PROVIDER RESPONSE
   // ----------------------------------------------------
 
   if (
     !providerResult ||
-    typeof providerResult !==
-      "object"
+    typeof providerResult !== "object" ||
+    Array.isArray(providerResult)
   ) {
-
-    throw new Error(
-      "Invalid response received from provider"
+    throw createNonRetryableError(
+      "Invalid response received from provider",
+      "INVALID_PROVIDER_RESPONSE"
     );
   }
 
-  // ----------------------------------------------------
-  // PROVIDER STATUS
-  // ----------------------------------------------------
-
-  const providerStatus =
-    String(
-      providerResult.status || ""
-    )
-      .trim()
-      .toLowerCase();
-
-  if (!providerStatus) {
-
-    throw new Error(
-      "Provider response does not contain order status"
+  if (
+    typeof providerResult.status !== "string" ||
+    !providerResult.status.trim()
+  ) {
+    throw createNonRetryableError(
+      "Provider response does not contain order status",
+      "PROVIDER_STATUS_MISSING"
     );
   }
 
-  // ----------------------------------------------------
-  // MAP PROVIDER STATUS
-  // ----------------------------------------------------
+  const providerStatus = providerResult.status
+    .trim()
+    .toLowerCase();
 
-  const mappedStatus =
-    mapProviderStatus(
-      providerStatus
-    );
+  const mappedStatus = mapProviderStatus(providerStatus);
 
   if (!mappedStatus) {
-
-    throw new Error(
-      `Unsupported provider status: ${providerStatus}`
+    throw createNonRetryableError(
+      `Unsupported provider status: ${providerStatus}`,
+      "UNSUPPORTED_PROVIDER_STATUS"
     );
   }
 
   // ----------------------------------------------------
-  // OLD VALUES
+  // 7. CAPTURE PREVIOUS VALUES
   // ----------------------------------------------------
 
-  const previousStatus =
-    String(
-      order.status || ""
-    );
+  const previousStatus = String(order.status || "");
 
-  const previousStartCount =
-    getSafeNumber(
-      order.startCount,
-      0
-    );
+  const previousStartCount = getSafeNumber(
+    order.startCount,
+    0
+  );
 
-  const previousRemains =
-    getSafeNumber(
-      order.remains,
-      0
-    );
+  const previousRemains = getSafeNumber(
+    order.remains,
+    0
+  );
 
   // ----------------------------------------------------
-  // TERMINAL STATUS PROTECTION
-  // ----------------------------------------------------
-  //
-  // If our local order is already in a terminal state,
-  // do not allow a provider response to move it back
-  // to pending / processing / in_progress.
-  //
-  // Example:
-  //
-  // completed -> processing ❌
-  // completed -> pending    ❌
-  //
-  // This protects the local order lifecycle from an
-  // unexpected/outdated provider response.
-  //
+  // 8. PREVENT TERMINAL STATUS REGRESSION
   // ----------------------------------------------------
 
-  let finalStatus =
-    mappedStatus;
+  let finalStatus = mappedStatus;
 
   if (
-    TERMINAL_STATUSES.has(
-      previousStatus
-    ) &&
-    !TERMINAL_STATUSES.has(
-      mappedStatus
-    )
+    TERMINAL_STATUSES.has(previousStatus) &&
+    !TERMINAL_STATUSES.has(mappedStatus)
   ) {
+    console.warn("Ignoring provider status regression", {
+      orderId: order._id.toString(),
+      previousStatus,
+      providerStatus: mappedStatus
+    });
 
-    console.warn(
-      `Ignoring provider status regression: ${previousStatus} -> ${mappedStatus}`
-    );
-
-    finalStatus =
-      previousStatus;
+    finalStatus = previousStatus;
   }
 
   // ----------------------------------------------------
-  // START COUNT
+  // 9. UPDATE COUNTS SAFELY
   // ----------------------------------------------------
 
-  const providerStartCount =
-    Number(
-      providerResult.startCount
-    );
+  const providerStartCount = getSafeNumber(
+    providerResult.startCount,
+    previousStartCount
+  );
+
+  const providerRemains = getSafeNumber(
+    providerResult.remains,
+    previousRemains
+  );
 
   if (
-    Number.isFinite(
-      providerStartCount
-    ) &&
-    providerStartCount >= 0
+    !TERMINAL_STATUSES.has(previousStatus) ||
+    TERMINAL_STATUSES.has(mappedStatus)
   ) {
-
-    order.startCount =
-      providerStartCount;
-
-  } else {
-
-    order.startCount =
-      previousStartCount;
+    order.startCount = providerStartCount;
+    order.remains = providerRemains;
   }
 
   // ----------------------------------------------------
-  // REMAINS
+  // 10. UPDATE PROVIDER RESPONSE
   // ----------------------------------------------------
 
-  const providerRemains =
-    Number(
-      providerResult.remains
-    );
-
-  if (
-    Number.isFinite(
-      providerRemains
-    ) &&
-    providerRemains >= 0
-  ) {
-
-    order.remains =
-      providerRemains;
-
-  } else {
-
-    order.remains =
-      previousRemains;
+  if (providerResult.providerResponse !== undefined) {
+    order.providerResponse = providerResult.providerResponse;
   }
 
   // ----------------------------------------------------
-  // PROVIDER RESPONSE
+  // 11. DETERMINE STATUS CHANGE
   // ----------------------------------------------------
 
-  if (
-    providerResult.providerResponse !==
-    undefined
-  ) {
-
-    order.providerResponse =
-      providerResult.providerResponse;
-  }
-
-  // ----------------------------------------------------
-  // STATUS CHANGED
-  // ----------------------------------------------------
-
-  const statusChanged =
-    previousStatus !==
-    finalStatus;
-
-  // ----------------------------------------------------
-  // UPDATE STATUS
-  // ----------------------------------------------------
+  const statusChanged = previousStatus !== finalStatus;
 
   if (statusChanged) {
-
-    order.status =
-      finalStatus;
+    order.status = finalStatus;
   }
 
   // ----------------------------------------------------
-  // SAVE ORDER
+  // 12. SAVE ORDER
   // ----------------------------------------------------
 
   await order.save();
 
   // ----------------------------------------------------
-  // CREATE STATUS LOG
+  // 13. CREATE AUDIT LOG FOR STATUS CHANGES
   // ----------------------------------------------------
 
   if (statusChanged) {
-
     try {
-
       await OrderStatusLog.create({
-
-        orderId:
-          order._id,
-
-        previousStatus:
-          previousStatus,
-
-        newStatus:
-          finalStatus,
-
-        source:
-          "provider",
-
-        message:
-          `Provider status synchronized: ${providerStatus}`,
-
-        providerResponse:
-          providerResult.providerResponse
-
+        orderId: order._id,
+        previousStatus,
+        newStatus: finalStatus,
+        source: "provider",
+        message: `Provider status synchronized: ${providerStatus}`,
+        providerResponse: providerResult.providerResponse
       });
-
     } catch (logError) {
-
-      // ------------------------------------------------
-      // IMPORTANT:
-      // Order has already been updated successfully.
-      //
-      // Do not fail the complete sync operation only
-      // because status logging failed.
-      // ------------------------------------------------
-
-      console.error(
-        "Failed to create OrderStatusLog:",
-        logError.message
-      );
+      // Logging failure should not turn a successful
+      // order update into a failed status-sync job.
+      console.error("Failed to create OrderStatusLog", {
+        orderId: order._id.toString(),
+        previousStatus,
+        newStatus: finalStatus,
+        message: logError.message
+      });
     }
   }
 
   // ----------------------------------------------------
-  // SUCCESS LOG
+  // 14. RETURN RESULT
   // ----------------------------------------------------
 
-  console.log(
-    "===================================="
-  );
-
-  console.log(
-    "ORDER PROVIDER STATUS SYNC SUCCESS"
-  );
-
-  console.log(
-    "ORDER ID:",
-    order._id.toString()
-  );
-
-  console.log(
-    "PROVIDER STATUS:",
-    providerStatus
-  );
-
-  console.log(
-    "LOCAL STATUS:",
-    order.status
-  );
-
-  console.log(
-    "START COUNT:",
-    order.startCount
-  );
-
-  console.log(
-    "REMAINS:",
-    order.remains
-  );
-
-  console.log(
-    "STATUS CHANGED:",
-    statusChanged
-  );
-
-  console.log(
-    "===================================="
-  );
-
-  // ----------------------------------------------------
-  // RESULT
-  // ----------------------------------------------------
-
-  return {
-
-    orderId:
-      order._id,
-
-    providerOrderId:
-      order.providerOrderId,
-
+  const result = {
+    orderId: order._id,
+    providerOrderId: order.providerOrderId,
     previousStatus,
-
     providerStatus,
-
-    status:
-      order.status,
-
-    startCount:
-      order.startCount,
-
-    remains:
-      order.remains,
-
+    status: order.status,
+    startCount: order.startCount,
+    remains: order.remains,
     statusChanged,
-
-    providerResponse:
-      providerResult.providerResponse
+    providerResponse: providerResult.providerResponse
   };
+
+  console.log("Provider status sync finished", {
+    orderId: order._id.toString(),
+    previousStatus,
+    status: order.status,
+    statusChanged
+  });
+
+  return result;
 };
 
 // ======================================================
-// EXPORT
+// EXPORTS
 // ======================================================
 
 module.exports = {
-
   syncOrderProviderStatus,
-
-  mapProviderStatus
-
+  mapProviderStatus,
+  createStatusSyncError
 };

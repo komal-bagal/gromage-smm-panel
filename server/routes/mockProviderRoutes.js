@@ -1,3 +1,4 @@
+
 // ======================================================
 // MOCK PROVIDER ROUTES
 // ======================================================
@@ -112,7 +113,11 @@ router.post("/services", (req, res) => {
         rate: "1.20",
         min: "100",
         max: "50000",
-        refill: false,
+
+        // UPDATED:
+        // YouTube Views now supports refill
+        refill: true,
+
         cancel: false
       }
     ];
@@ -132,13 +137,87 @@ router.post("/services", (req, res) => {
 });
 
 // ======================================================
-// MOCK PROVIDER CREATE ORDER API
+// MOCK PROVIDER BALANCE API
 // ======================================================
 
-router.post("/order", async (req, res) => {
+router.post("/balance", (req, res) => {
   try {
     console.log("====================================");
-    console.log("MOCK PROVIDER ORDER API CALLED");
+    console.log("MOCK PROVIDER BALANCE API CALLED");
+    console.log("REQUEST BODY:", req.body);
+    console.log("====================================");
+
+    const {
+      key,
+      action
+    } = req.body || {};
+
+    // --------------------------------------------------
+    // CHECK API KEY
+    // --------------------------------------------------
+
+    if (
+      !key ||
+      typeof key !== "string" ||
+      !key.trim()
+    ) {
+      return res.status(401).json({
+        error: "API key is required"
+      });
+    }
+
+    // --------------------------------------------------
+    // CHECK ACTION
+    // --------------------------------------------------
+
+    if (action !== "balance") {
+      return res.status(400).json({
+        error: "Invalid action"
+      });
+    }
+
+    // --------------------------------------------------
+    // MOCK BALANCE
+    // --------------------------------------------------
+
+    const balance = {
+      balance: "100.00",
+      currency: "USD"
+    };
+
+    console.log(
+      "MOCK PROVIDER BALANCE RESPONSE:",
+      balance
+    );
+
+    // --------------------------------------------------
+    // SUCCESS
+    // --------------------------------------------------
+
+    return res.status(200).json(balance);
+
+  } catch (error) {
+    console.error(
+      "MOCK PROVIDER BALANCE ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      error: "Mock provider server error"
+    });
+  }
+});
+
+// ======================================================
+// MOCK PROVIDER CREATE ORDER API
+// IMPORTANT:
+// Provider integration calls /order/add
+// ======================================================
+
+router.post("/order/add", async (req, res) => {
+  try {
+    console.log("====================================");
+    console.log("MOCK PROVIDER ORDER ADD API CALLED");
     console.log("REQUEST BODY:", req.body);
     console.log("====================================");
 
@@ -147,7 +226,9 @@ router.post("/order", async (req, res) => {
       action,
       service,
       link,
-      quantity
+      quantity,
+      runs,
+      interval
     } = req.body || {};
 
     // --------------------------------------------------
@@ -171,6 +252,37 @@ router.post("/order", async (req, res) => {
     if (action !== "add") {
       return res.status(400).json({
         error: "Invalid action"
+      });
+    }
+
+    // --------------------------------------------------
+    // ADD ORDER TEST MODE
+    // Used for non-retryable provider failure/refund test
+    // --------------------------------------------------
+
+    const addMode = String(
+      process.env.MOCK_PROVIDER_ADD_MODE || "normal"
+    )
+      .trim()
+      .toLowerCase();
+
+    if (addMode === "insufficient_balance") {
+      console.log("====================================");
+      console.log(
+        "MOCK PROVIDER NON-RETRYABLE FAILURE"
+      );
+      console.log(
+        "MODE: insufficient_balance"
+      );
+      console.log(
+        "RETURNING HTTP 402 FOR REFUND TEST"
+      );
+      console.log("====================================");
+
+      return res.status(402).json({
+        error:
+          "Insufficient provider balance for refund test",
+        retryable: false
       });
     }
 
@@ -278,6 +390,49 @@ router.post("/order", async (req, res) => {
     }
 
     // --------------------------------------------------
+    // VALIDATE OPTIONAL DRIP FEED VALUES
+    // --------------------------------------------------
+
+    let numericRuns = null;
+    let numericInterval = null;
+
+    if (
+      runs !== undefined &&
+      runs !== null &&
+      String(runs).trim() !== ""
+    ) {
+      numericRuns = Number(runs);
+
+      if (
+        !Number.isInteger(numericRuns) ||
+        numericRuns <= 0
+      ) {
+        return res.status(400).json({
+          error:
+            "Runs must be a valid positive integer"
+        });
+      }
+    }
+
+    if (
+      interval !== undefined &&
+      interval !== null &&
+      String(interval).trim() !== ""
+    ) {
+      numericInterval = Number(interval);
+
+      if (
+        !Number.isInteger(numericInterval) ||
+        numericInterval < 0
+      ) {
+        return res.status(400).json({
+          error:
+            "Interval must be a valid non-negative integer"
+        });
+      }
+    }
+
+    // --------------------------------------------------
     // GENERATE PROVIDER ORDER ID
     // --------------------------------------------------
 
@@ -288,10 +443,22 @@ router.post("/order", async (req, res) => {
 
     // --------------------------------------------------
     // DETERMINE REFILL SUPPORT
+    // UPDATED:
+    // 1001 and 1003 support refill
     // --------------------------------------------------
 
     const refillSupported =
-      String(service) === "1001";
+      ["1001", "1003"].includes(
+        String(service)
+      );
+
+    console.log(
+      "MOCK SERVICE REFILL SUPPORT:",
+      {
+        service: String(service),
+        refillSupported
+      }
+    );
 
     // --------------------------------------------------
     // CREATE MOCK ORDER IN MONGODB
@@ -337,6 +504,23 @@ router.post("/order", async (req, res) => {
     );
 
     // --------------------------------------------------
+    // DRIP FEED LOG
+    // --------------------------------------------------
+
+    if (
+      numericRuns !== null ||
+      numericInterval !== null
+    ) {
+      console.log(
+        "MOCK DRIP FEED VALUES:",
+        {
+          runs: numericRuns,
+          interval: numericInterval
+        }
+      );
+    }
+
+    // --------------------------------------------------
     // SUCCESS
     // --------------------------------------------------
 
@@ -346,7 +530,7 @@ router.post("/order", async (req, res) => {
 
   } catch (error) {
     console.error(
-      "MOCK PROVIDER ORDER ERROR:",
+      "MOCK PROVIDER ORDER ADD ERROR:",
       error
     );
 
@@ -901,6 +1085,198 @@ router.post(
       );
 
       return res.status(500).json({
+        error:
+          "Mock provider server error"
+      });
+    }
+  }
+);
+
+// ======================================================
+// MOCK PROVIDER TEST STATUS UPDATE API
+// Used only for local testing of provider status sync
+// ======================================================
+
+router.post(
+  "/test/order/status",
+  async (req, res) => {
+    try {
+      console.log("====================================");
+      console.log(
+        "MOCK PROVIDER TEST STATUS UPDATE API CALLED"
+      );
+      console.log(
+        "REQUEST BODY:",
+        req.body
+      );
+      console.log("====================================");
+
+      const {
+        providerOrderId,
+        status,
+        startCount,
+        remains
+      } = req.body || {};
+
+      // ------------------------------------------------
+      // CHECK PROVIDER ORDER ID
+      // ------------------------------------------------
+
+      if (
+        !providerOrderId ||
+        !String(providerOrderId).trim()
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "Provider order ID is required"
+        });
+      }
+
+      // ------------------------------------------------
+      // ALLOWED STATUSES
+      // ------------------------------------------------
+
+      const allowedStatuses = [
+        "pending",
+        "processing",
+        "in_progress",
+        "completed",
+        "partial",
+        "canceled",
+        "failed"
+      ];
+
+      if (
+        !status ||
+        !allowedStatuses.includes(
+          String(status).trim()
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid provider order status"
+        });
+      }
+
+      // ------------------------------------------------
+      // FIND MOCK ORDER
+      // ------------------------------------------------
+
+      const mockOrder =
+        await MockProviderOrder.findOne({
+          providerOrderId:
+            String(providerOrderId).trim()
+        });
+
+      if (!mockOrder) {
+        return res.status(404).json({
+          success: false,
+          error: "Mock provider order not found"
+        });
+      }
+
+      // ------------------------------------------------
+      // UPDATE STATUS
+      // ------------------------------------------------
+
+      mockOrder.status =
+        String(status).trim();
+
+      // ------------------------------------------------
+      // UPDATE START COUNT
+      // ------------------------------------------------
+
+      if (
+        startCount !== undefined &&
+        startCount !== null
+      ) {
+        const numericStartCount =
+          Number(startCount);
+
+        if (
+          !Number.isFinite(numericStartCount) ||
+          numericStartCount < 0
+        ) {
+          return res.status(400).json({
+            success: false,
+            error:
+              "startCount must be a valid non-negative number"
+          });
+        }
+
+        mockOrder.startCount =
+          numericStartCount;
+      }
+
+      // ------------------------------------------------
+      // UPDATE REMAINS
+      // ------------------------------------------------
+
+      if (
+        remains !== undefined &&
+        remains !== null
+      ) {
+        const numericRemains =
+          Number(remains);
+
+        if (
+          !Number.isFinite(numericRemains) ||
+          numericRemains < 0
+        ) {
+          return res.status(400).json({
+            success: false,
+            error:
+              "remains must be a valid non-negative number"
+          });
+        }
+
+        mockOrder.remains =
+          numericRemains;
+      }
+
+      // ------------------------------------------------
+      // SAVE
+      // ------------------------------------------------
+
+      await mockOrder.save();
+
+      console.log(
+        "MOCK PROVIDER TEST ORDER UPDATED:",
+        mockOrder
+      );
+
+      // ------------------------------------------------
+      // RESPONSE
+      // ------------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Mock provider order status updated",
+
+        order: {
+          providerOrderId:
+            mockOrder.providerOrderId,
+
+          status:
+            mockOrder.status,
+
+          startCount:
+            mockOrder.startCount,
+
+          remains:
+            mockOrder.remains
+        }
+      });
+
+    } catch (error) {
+      console.error(
+        "MOCK PROVIDER TEST STATUS UPDATE ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
         error:
           "Mock provider server error"
       });

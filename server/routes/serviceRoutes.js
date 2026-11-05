@@ -2,8 +2,11 @@ const express = require("express");
 
 const router = express.Router();
 
-const authMiddleware = require("../middleware/authMiddleware");
-const adminMiddleware = require("../middleware/roleMiddleware");
+const authMiddleware =
+  require("../middleware/authMiddleware");
+
+const adminMiddleware =
+  require("../middleware/roleMiddleware");
 
 const {
   createService,
@@ -12,7 +15,8 @@ const {
   updateService,
   deleteService,
   updateServiceStatus,
-  bulkPriceUpdate
+  bulkPriceUpdate,
+  mapProviderService
 } = require("../controllers/serviceController");
 
 
@@ -20,7 +24,11 @@ const {
 // SERVICE ROUTES
 // ======================================================
 
-// Get all services
+
+// ======================================================
+// GET ALL SERVICES
+// ======================================================
+
 router.get(
   "/",
   authMiddleware,
@@ -28,7 +36,10 @@ router.get(
 );
 
 
-// Get single service
+// ======================================================
+// GET SINGLE SERVICE
+// ======================================================
+
 router.get(
   "/:serviceId",
   authMiddleware,
@@ -36,7 +47,10 @@ router.get(
 );
 
 
-// Create service
+// ======================================================
+// CREATE SERVICE
+// ======================================================
+
 router.post(
   "/",
   authMiddleware,
@@ -45,7 +59,10 @@ router.post(
 );
 
 
-// Update service
+// ======================================================
+// UPDATE SERVICE
+// ======================================================
+
 router.put(
   "/:serviceId",
   authMiddleware,
@@ -54,7 +71,10 @@ router.put(
 );
 
 
-// Delete service
+// ======================================================
+// DELETE SERVICE
+// ======================================================
+
 router.delete(
   "/:serviceId",
   authMiddleware,
@@ -63,7 +83,10 @@ router.delete(
 );
 
 
-// Enable / Disable service
+// ======================================================
+// ENABLE / DISABLE SERVICE
+// ======================================================
+
 router.patch(
   "/:serviceId/status",
   authMiddleware,
@@ -72,7 +95,22 @@ router.patch(
 );
 
 
-// Bulk price update
+// ======================================================
+// PROVIDER SERVICE MAPPING
+// ======================================================
+
+router.patch(
+  "/:serviceId/provider-mapping",
+  authMiddleware,
+  adminMiddleware,
+  mapProviderService
+);
+
+
+// ======================================================
+// BULK PRICE UPDATE
+// ======================================================
+
 router.patch(
   "/bulk-price",
   authMiddleware,

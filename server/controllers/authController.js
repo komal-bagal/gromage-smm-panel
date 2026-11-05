@@ -1,8 +1,25 @@
-
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const User = require("../models/User");
+
+// ======================================================
+// JWT CONFIGURATION
+// ======================================================
+
+const JWT_ISSUER = "gromage-smm-panel";
+const JWT_AUDIENCE = "gromage-client";
+const JWT_ALGORITHM = "HS256";
+
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+
+  if (!secret || secret.length < 32) {
+    throw new Error("JWT_SECRET is missing or too weak");
+  }
+
+  return secret;
+};
 
 // ======================================================
 // REGISTER USER
@@ -70,7 +87,6 @@ const registerUser = async (req, res) => {
   }
 };
 
-
 // ======================================================
 // LOGIN USER
 // ======================================================
@@ -124,14 +140,23 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // Check account status
-    if (user.status === "suspended") {
+    // --------------------------------------------------
+    // CHECK ACCOUNT STATUS
+    // --------------------------------------------------
+
+    if (user.status !== "active") {
       return res.status(403).json({
         message: "Account is suspended"
       });
     }
 
+    // --------------------------------------------------
+    // CREATE JWT
+    // --------------------------------------------------
+
     console.log("7. Creating JWT...");
+
+    const jwtSecret = getJwtSecret();
 
     console.log(
       "JWT_SECRET exists:",
@@ -142,9 +167,12 @@ const loginUser = async (req, res) => {
       {
         userId: user._id
       },
-      process.env.JWT_SECRET,
+      jwtSecret,
       {
-        expiresIn: "1d"
+        expiresIn: "1d",
+        algorithm: JWT_ALGORITHM,
+        issuer: JWT_ISSUER,
+        audience: JWT_AUDIENCE
       }
     );
 
@@ -174,7 +202,6 @@ const loginUser = async (req, res) => {
   }
 };
 
-
 // ======================================================
 // LOGOUT USER
 // ======================================================
@@ -193,7 +220,6 @@ const logoutUser = async (req, res) => {
     });
   }
 };
-
 
 // ======================================================
 // FORGOT PASSWORD
@@ -222,8 +248,13 @@ const forgotPassword = async (req, res) => {
       });
     }
 
-    // Generate secure random reset token
-    const resetToken = crypto.randomBytes(32).toString("hex");
+    // --------------------------------------------------
+    // GENERATE SECURE RANDOM RESET TOKEN
+    // --------------------------------------------------
+
+    const resetToken = crypto
+      .randomBytes(32)
+      .toString("hex");
 
     // Token expires after 15 minutes
     const resetTokenExpiry = new Date(
@@ -241,7 +272,8 @@ const forgotPassword = async (req, res) => {
     );
 
     return res.status(200).json({
-      message: "Password reset token generated successfully",
+      message:
+        "Password reset token generated successfully",
       resetToken: resetToken,
       expiresAt: resetTokenExpiry
     });
@@ -255,7 +287,6 @@ const forgotPassword = async (req, res) => {
   }
 };
 
-
 // ======================================================
 // RESET PASSWORD
 // ======================================================
@@ -268,21 +299,28 @@ const resetPassword = async (req, res) => {
 
     if (!token || !newPassword) {
       return res.status(400).json({
-        message: "Token and new password are required"
+        message:
+          "Token and new password are required"
       });
     }
 
-    // Minimum password length
+    // --------------------------------------------------
+    // PASSWORD VALIDATION
+    // --------------------------------------------------
+
     if (newPassword.length < 6) {
       return res.status(400).json({
-        message: "Password must be at least 6 characters"
+        message:
+          "Password must be at least 6 characters"
       });
     }
 
     console.log("Searching reset token...");
 
-    // Find user with valid token
-    // and check that token is not expired
+    // --------------------------------------------------
+    // FIND USER WITH VALID RESET TOKEN
+    // --------------------------------------------------
+
     const user = await User.findOne({
       resetPasswordToken: token,
       resetPasswordExpires: {
@@ -292,22 +330,32 @@ const resetPassword = async (req, res) => {
 
     if (!user) {
       return res.status(400).json({
-        message: "Invalid or expired reset token"
+        message:
+          "Invalid or expired reset token"
       });
     }
 
     console.log("Valid reset token found");
 
-    // Hash new password
+    // --------------------------------------------------
+    // HASH NEW PASSWORD
+    // --------------------------------------------------
+
     const hashedPassword = await bcrypt.hash(
       newPassword,
       10
     );
 
-    // Update password
+    // --------------------------------------------------
+    // UPDATE PASSWORD
+    // --------------------------------------------------
+
     user.password = hashedPassword;
 
-    // Remove reset token after successful reset
+    // --------------------------------------------------
+    // REMOVE RESET TOKEN AFTER SUCCESS
+    // --------------------------------------------------
+
     user.resetPasswordToken = null;
     user.resetPasswordExpires = null;
 
@@ -328,7 +376,6 @@ const resetPassword = async (req, res) => {
   }
 };
 
-
 // ======================================================
 // EXPORT
 // ======================================================
@@ -340,4 +387,3 @@ module.exports = {
   forgotPassword,
   resetPassword
 };
-

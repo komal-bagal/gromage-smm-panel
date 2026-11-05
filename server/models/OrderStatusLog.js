@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 // ======================================================
@@ -63,7 +64,8 @@ const orderStatusLogSchema = new mongoose.Schema(
         "system",
         "admin",
         "provider",
-        "user"
+        "user",
+        "reseller_api"
       ],
       default: "system",
       index: true
@@ -109,7 +111,7 @@ orderStatusLogSchema.index({
   createdAt: -1
 });
 
-// Useful for filtering provider/admin/system changes
+// Useful for filtering source changes
 orderStatusLogSchema.index({
   source: 1,
   createdAt: -1
@@ -119,7 +121,21 @@ orderStatusLogSchema.index({
 // MODEL
 // ======================================================
 
-module.exports = mongoose.model(
-  "OrderStatusLog",
-  orderStatusLogSchema
+const OrderStatusLog =
+  mongoose.models.OrderStatusLog ||
+  mongoose.model("OrderStatusLog", orderStatusLogSchema);
+
+// ======================================================
+// DEBUG - VERIFY LOADED ENUM VALUES
+// ======================================================
+
+console.log(
+  "ORDER STATUS LOG SOURCES:",
+  OrderStatusLog.schema.path("source").enumValues
 );
+
+// ======================================================
+// EXPORT
+// ======================================================
+
+module.exports = OrderStatusLog;

@@ -1,4 +1,5 @@
 const express = require("express");
+console.log("USER ROUTES LOADED");
 
 const router = express.Router();
 

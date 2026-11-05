@@ -1,19 +1,7 @@
-// ======================================================
-// PROVIDER LOG MODEL
-// ======================================================
-
 const mongoose = require("mongoose");
-
-// ======================================================
-// PROVIDER LOG SCHEMA
-// ======================================================
 
 const providerLogSchema = new mongoose.Schema(
   {
-    // ==================================================
-    // PROVIDER
-    // ==================================================
-
     providerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Provider",
@@ -21,20 +9,12 @@ const providerLogSchema = new mongoose.Schema(
       index: true
     },
 
-    // ==================================================
-    // ORDER
-    // ==================================================
-
     orderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",
       default: null,
       index: true
     },
-
-    // ==================================================
-    // OPERATION
-    // ==================================================
 
     operation: {
       type: String,
@@ -47,17 +27,14 @@ const providerLogSchema = new mongoose.Schema(
         "balance",
         "unknown"
       ],
-      required: true,
-      index: true
+      default: "unknown",
+      required: true
     },
-
-    // ==================================================
-    // REQUEST
-    // ==================================================
 
     method: {
       type: String,
-      default: "POST"
+      default: "POST",
+      trim: true
     },
 
     endpoint: {
@@ -71,14 +48,11 @@ const providerLogSchema = new mongoose.Schema(
       default: null
     },
 
-    // ==================================================
-    // RESPONSE
-    // ==================================================
-
     httpStatus: {
       type: Number,
       default: null,
-      index: true
+      min: 100,
+      max: 599
     },
 
     responsePayload: {
@@ -86,43 +60,29 @@ const providerLogSchema = new mongoose.Schema(
       default: null
     },
 
-    // ==================================================
-    // RESULT
-    // ==================================================
-
     success: {
       type: Boolean,
       default: false,
-      index: true
+      required: true
     },
-
-    // ==================================================
-    // ERROR
-    // ==================================================
 
     errorMessage: {
       type: String,
-      default: null
+      default: null,
+      maxlength: 2000
     },
 
     errorCode: {
       type: String,
-      default: null
+      default: null,
+      maxlength: 200
     },
-
-    // ==================================================
-    // PERFORMANCE
-    // ==================================================
 
     durationMs: {
       type: Number,
       default: null,
       min: 0
     },
-
-    // ==================================================
-    // RETRY
-    // ==================================================
 
     attempt: {
       type: Number,
@@ -141,42 +101,30 @@ const providerLogSchema = new mongoose.Schema(
   }
 );
 
-// ======================================================
-// INDEXES
-// ======================================================
-
-// Provider + latest logs
+// Indexes for provider history, operation history,
+// order history, and success/failure monitoring.
 providerLogSchema.index({
   providerId: 1,
   createdAt: -1
 });
 
-// Provider + operation + latest logs
 providerLogSchema.index({
   providerId: 1,
   operation: 1,
   createdAt: -1
 });
 
-// Order + latest logs
 providerLogSchema.index({
   orderId: 1,
   createdAt: -1
 });
 
-// Failed provider calls
 providerLogSchema.index({
   success: 1,
   createdAt: -1
 });
 
-// ======================================================
-// MODEL
-// ======================================================
-
-const ProviderLog = mongoose.model(
-  "ProviderLog",
-  providerLogSchema
-);
-
-module.exports = ProviderLog;
+// Reuse the model if it has already been registered.
+module.exports =
+  mongoose.models.ProviderLog ||
+  mongoose.model("ProviderLog", providerLogSchema);

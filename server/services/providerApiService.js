@@ -8,47 +8,50 @@ const {
 // ======================================================
 
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10000;
-const DEFAULT_PROVIDER_MAX_ATTEMPTS = 3;
-const DEFAULT_PROVIDER_RETRY_DELAY_MS = 1000;
-const MAX_PROVIDER_RETRY_DELAY_MS = 5000;
 
+// Each provider operation makes only ONE HTTP request per
+// application attempt. BullMQ handles status-job retries.
 
 // ======================================================
 // UTILITY FUNCTIONS
 // ======================================================
 
-const getDurationMs = (startedAt) => {
-  return Date.now() - startedAt;
+const getProviderId = (provider) =>
+  provider?._id || provider?.id || null;
+
+// ======================================================
+// PARSE RETRY-AFTER HEADER
+// ======================================================
+
+const parseRetryAfterMs = (value) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const headerValue = String(value).trim();
+
+  if (!headerValue) {
+    return null;
+  }
+
+  // Retry-After can be a delay in seconds.
+  if (/^\d+(?:\.\d+)?$/.test(headerValue)) {
+    const delayMs = Number(headerValue) * 1000;
+
+    return Number.isFinite(delayMs)
+      ? delayMs
+      : null;
+  }
+
+  // Retry-After can also be an HTTP date.
+  const retryAt = Date.parse(headerValue);
+
+  if (!Number.isFinite(retryAt)) {
+    return null;
+  }
+
+  return Math.max(0, retryAt - Date.now());
 };
-
-
-const sleep = (ms) => {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-};
-
-
-const getRetryDelayMs = (attempt) => {
-  const delay =
-    DEFAULT_PROVIDER_RETRY_DELAY_MS *
-    Math.pow(2, Math.max(attempt - 1, 0));
-
-  return Math.min(
-    delay,
-    MAX_PROVIDER_RETRY_DELAY_MS
-  );
-};
-
-
-const getProviderId = (provider) => {
-  return (
-    provider?._id ||
-    provider?.id ||
-    null
-  );
-};
-
 
 // ======================================================
 // FETCH WITH TIMEOUT
@@ -75,7 +78,6 @@ const fetchWithTimeout = async (
   }
 };
 
-
 // ======================================================
 // CREATE PROVIDER ERROR
 // ======================================================
@@ -83,16 +85,23 @@ const fetchWithTimeout = async (
 const createProviderError = (
   message,
   code = "PROVIDER_ERROR",
-  retryable = false
+  retryable = false,
+  retryAfterMs = null
 ) => {
   const error = new Error(message);
 
   error.code = code;
   error.retryable = retryable;
 
+  if (
+    Number.isFinite(retryAfterMs) &&
+    retryAfterMs >= 0
+  ) {
+    error.retryAfterMs = retryAfterMs;
+  }
+
   return error;
 };
-
 
 // ======================================================
 // CLASSIFY PROVIDER ERROR
@@ -111,8 +120,6 @@ const classifyProviderError = ({
     ""
   ).toLowerCase();
 
-
-  // RATE LIMIT
   if (
     statusCode === 429 ||
     message.includes("rate limit") ||
@@ -124,8 +131,6 @@ const classifyProviderError = ({
     };
   }
 
-
-  // TIMEOUT
   if (
     statusCode === 408 ||
     statusCode === 504 ||
@@ -141,8 +146,6 @@ const classifyProviderError = ({
     };
   }
 
-
-  // PROVIDER BALANCE
   if (
     statusCode === 402 ||
     message.includes("insufficient balance") ||
@@ -157,9 +160,8 @@ const classifyProviderError = ({
     };
   }
 
-
-  // CLIENT ERROR
   if (
+    typeof statusCode === "number" &&
     statusCode >= 400 &&
     statusCode < 500
   ) {
@@ -169,17 +171,16 @@ const classifyProviderError = ({
     };
   }
 
-
-  // SERVER ERROR
-  if (statusCode >= 500) {
+  if (
+    typeof statusCode === "number" &&
+    statusCode >= 500
+  ) {
     return {
       code: "PROVIDER_SERVER_ERROR",
       retryable: true
     };
   }
 
-
-  // NETWORK ERROR
   if (
     error?.code === "ECONNRESET" ||
     error?.code === "ECONNREFUSED" ||
@@ -195,14 +196,84 @@ const classifyProviderError = ({
     };
   }
 
-
-  // GENERIC ERROR
   return {
     code: "PROVIDER_ERROR",
     retryable: false
   };
 };
 
+// ======================================================
+// IS PROVIDER OUTCOME UNCERTAIN
+// ======================================================
+//
+// Returns true when the request may have been received and
+// processed by the provider even though we got an error.
+// Example: the order was created but the response was lost.
+//
+// Callers that create orders must NOT fall back to another
+// provider or blindly retry when this is true.
+//
+// Returns false only when the provider definitely did not
+// accept the request (never connected, 4xx, or a clear
+// business-error body such as { error: "..." }).
+//
+// ======================================================
+
+const NEVER_CONNECTED_CODES = new Set([
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "EAI_AGAIN"
+]);
+
+const isOutcomeUncertain = ({
+  responseStatus,
+  originalError,
+  providerError
+}) => {
+  // 2xx response but unusable body (e.g. no order ID).
+  if (providerError?.code === "INVALID_PROVIDER_RESPONSE") {
+    return true;
+  }
+
+  // No HTTP response at all: timeout, abort, reset, etc.
+  if (responseStatus === null || responseStatus === undefined) {
+    const errorCode =
+      originalError?.code ||
+      originalError?.cause?.code;
+
+    // Connection never established: provider saw nothing.
+    if (NEVER_CONNECTED_CODES.has(errorCode)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  // Server error or gateway timeout: request may have been
+  // processed before the failure.
+  if (
+    responseStatus >= 500 ||
+    responseStatus === 408
+  ) {
+    return true;
+  }
+
+  // 2xx status, but reading/parsing the body failed with a
+  // raw (non-provider) error, e.g. timeout while reading.
+  const isRawError =
+    typeof originalError?.retryable !== "boolean";
+
+  if (
+    responseStatus >= 200 &&
+    responseStatus < 300 &&
+    isRawError
+  ) {
+    return true;
+  }
+
+  // 4xx or business-error body: definite rejection.
+  return false;
+};
 
 // ======================================================
 // VALIDATE PROVIDER
@@ -220,14 +291,12 @@ const validateProvider = ({
     );
   }
 
-
   if (!provider.apiUrl) {
     throw createProviderError(
       "Provider API URL is missing",
       "PROVIDER_API_URL_MISSING"
     );
   }
-
 
   if (!provider.apiKey) {
     throw createProviderError(
@@ -236,21 +305,14 @@ const validateProvider = ({
     );
   }
 
-
-  if (
-    requireOrderId &&
-    !providerOrderId
-  ) {
+  if (requireOrderId && !providerOrderId) {
     throw createProviderError(
       "Provider order ID is required",
       "PROVIDER_ORDER_ID_MISSING"
     );
   }
 
-
-  const providerId =
-    getProviderId(provider);
-
+  const providerId = getProviderId(provider);
 
   if (!providerId) {
     throw createProviderError(
@@ -259,10 +321,8 @@ const validateProvider = ({
     );
   }
 
-
   return providerId;
 };
-
 
 // ======================================================
 // PARSE PROVIDER RESPONSE
@@ -275,61 +335,40 @@ const parseProviderResponse = async (response) => {
     return {};
   }
 
-
   try {
     return JSON.parse(responseText);
-  } catch (error) {
+  } catch {
     return {
       raw: responseText
     };
   }
 };
 
-
 // ======================================================
 // PROVIDER BUSINESS ERROR CHECK
 // ======================================================
 
-const hasProviderBusinessError = (responseData) => {
-  return Boolean(
-    responseData?.error ||
-    responseData?.errors
-  );
-};
-
+const hasProviderBusinessError = (responseData) =>
+  Boolean(responseData?.error || responseData?.errors);
 
 // ======================================================
 // GET PROVIDER ERROR MESSAGE
 // ======================================================
 
-const getProviderErrorMessage = (
-  responseData,
-  fallback
-) => {
-  if (
-    typeof responseData?.error === "string"
-  ) {
+const getProviderErrorMessage = (responseData, fallback) => {
+  if (typeof responseData?.error === "string") {
     return responseData.error;
   }
 
-
-  if (
-    typeof responseData?.message === "string"
-  ) {
+  if (typeof responseData?.message === "string") {
     return responseData.message;
   }
 
-
-  if (
-    typeof responseData?.msg === "string"
-  ) {
+  if (typeof responseData?.msg === "string") {
     return responseData.msg;
   }
 
-
-  if (
-    Array.isArray(responseData?.errors)
-  ) {
+  if (Array.isArray(responseData?.errors)) {
     return responseData.errors
       .map((item) => {
         if (typeof item === "string") {
@@ -345,13 +384,63 @@ const getProviderErrorMessage = (
       .join(", ");
   }
 
-
   return fallback;
 };
 
+// ======================================================
+// CENTRALIZED FAILURE LOGGING
+// ======================================================
+//
+// Logging must never replace the original provider error.
+//
+// ======================================================
+
+const recordProviderFailure = async ({
+  error,
+  providerId,
+  orderId,
+  operation,
+  endpoint,
+  requestPayload,
+  httpStatus = null,
+  responsePayload = null,
+  startedAt,
+  attempt,
+  maxAttempts
+}) => {
+  if (error.providerFailureLogged) {
+    return;
+  }
+
+  // Mark first so a logging failure is never retried in a loop.
+  error.providerFailureLogged = true;
+
+  try {
+    await logProviderFailure({
+      providerId,
+      orderId,
+      operation,
+      method: "POST",
+      endpoint,
+      requestPayload,
+      httpStatus,
+      responsePayload,
+      errorMessage: error.message,
+      errorCode: error.code || "PROVIDER_ERROR",
+      durationMs: Date.now() - startedAt,
+      attempt,
+      maxAttempts
+    });
+  } catch (logError) {
+    console.error(
+      "Failed to write provider failure log:",
+      logError.message
+    );
+  }
+};
 
 // ======================================================
-// PROVIDER REQUEST
+// CENTRALIZED PROVIDER REQUEST
 // ======================================================
 
 const executeProviderRequest = async ({
@@ -364,354 +453,117 @@ const executeProviderRequest = async ({
   additionalFields = {},
   validateResponse
 }) => {
-
   const providerId = validateProvider({
     provider,
     providerOrderId,
     requireOrderId: Boolean(providerOrderId)
   });
 
+  const baseUrl = String(provider.apiUrl).replace(/\/+$/, "");
+  const url = `${baseUrl}${endpointPath}`;
 
-  const baseUrl = String(
-    provider.apiUrl
-  ).replace(/\/+$/, "");
+  // One HTTP request per invocation.
+  // BullMQ is responsible for retrying status jobs.
+  const attempt = 1;
+  const maxAttempts = 1;
+  const startedAt = Date.now();
 
+  const requestPayload = {
+    action,
+    ...additionalFields
+  };
 
-  const url =
-    `${baseUrl}${endpointPath}`;
+  if (providerOrderId) {
+    requestPayload.order = providerOrderId;
+  }
 
+  let responseStatus = null;
+  let responseData = null;
 
-  const maxAttempts =
-    DEFAULT_PROVIDER_MAX_ATTEMPTS;
+  try {
+    const formData = new URLSearchParams();
 
-
-  let lastError;
-
-
-  // ====================================================
-  // RETRY LOOP
-  // ====================================================
-
-  for (
-    let attempt = 1;
-    attempt <= maxAttempts;
-    attempt++
-  ) {
-
-    const startedAt = Date.now();
-
-
-    // --------------------------------------------------
-    // LOG-SAFE REQUEST PAYLOAD
-    // --------------------------------------------------
-
-    const requestPayload = {
-      action,
-      ...additionalFields
-    };
-
+    formData.append("key", provider.apiKey);
+    formData.append("action", action);
 
     if (providerOrderId) {
-      requestPayload.order =
-        providerOrderId;
+      formData.append("order", providerOrderId);
     }
 
-
-    try {
-
-      // ------------------------------------------------
-      // FORM DATA
-      // ------------------------------------------------
-
-      const formData =
-        new URLSearchParams();
-
-
-      formData.append(
-        "key",
-        provider.apiKey
-      );
-
-
-      formData.append(
-        "action",
-        action
-      );
-
-
-      if (providerOrderId) {
-        formData.append(
-          "order",
-          providerOrderId
-        );
+    Object.entries(additionalFields).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        formData.append(key, String(value));
       }
+    });
 
+    const response = await fetchWithTimeout(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: formData.toString()
+    });
 
-      Object.entries(
-        additionalFields
-      ).forEach(([key, value]) => {
+    responseStatus = response.status;
+    responseData = await parseProviderResponse(response);
 
-        if (
-          value !== undefined &&
-          value !== null
-        ) {
-          formData.append(
-            key,
-            String(value)
-          );
-        }
+    if (!response.ok) {
+      const classification = classifyProviderError({
+        statusCode: response.status,
+        responseData
       });
 
+      const retryAfterMs =
+        response.status === 429
+          ? parseRetryAfterMs(
+              response.headers?.get("retry-after")
+            )
+          : null;
 
-      // ------------------------------------------------
-      // SEND REQUEST
-      // ------------------------------------------------
+      throw createProviderError(
+        getProviderErrorMessage(
+          responseData,
+          `Provider returned HTTP ${response.status}`
+        ),
+        classification.code,
+        classification.retryable,
+        retryAfterMs
+      );
+    }
 
-      const response =
-        await fetchWithTimeout(
-          url,
-          {
-            method: "POST",
+    if (hasProviderBusinessError(responseData)) {
+      const classification = classifyProviderError({
+        statusCode: response.status,
+        responseData
+      });
 
-            headers: {
-              "Content-Type":
-                "application/x-www-form-urlencoded"
-            },
+      throw createProviderError(
+        getProviderErrorMessage(
+          responseData,
+          "Provider returned an error"
+        ),
+        classification.code,
+        classification.retryable
+      );
+    }
 
-            body:
-              formData.toString()
-          }
+    if (typeof validateResponse === "function") {
+      const validationResult = validateResponse(responseData);
+
+      if (validationResult !== true) {
+        throw createProviderError(
+          typeof validationResult === "string"
+            ? validationResult
+            : "Invalid provider response",
+          "INVALID_PROVIDER_RESPONSE",
+          false
         );
-
-
-      // ------------------------------------------------
-      // PARSE RESPONSE
-      // ------------------------------------------------
-
-      const responseData =
-        await parseProviderResponse(
-          response
-        );
-
-
-      // ------------------------------------------------
-      // HTTP ERROR
-      // ------------------------------------------------
-
-      if (!response.ok) {
-
-        const classification =
-          classifyProviderError({
-            statusCode:
-              response.status,
-
-            responseData
-          });
-
-
-        const providerError =
-          createProviderError(
-            getProviderErrorMessage(
-              responseData,
-              `Provider returned HTTP ${response.status}`
-            ),
-            classification.code,
-            classification.retryable
-          );
-
-
-        lastError =
-          providerError;
-
-
-        await logProviderFailure({
-          providerId,
-          orderId,
-          operation,
-          method: "POST",
-          endpoint: url,
-          requestPayload,
-
-          httpStatus:
-            response.status,
-
-          responsePayload:
-            responseData,
-
-          errorMessage:
-            providerError.message,
-
-          errorCode:
-            providerError.code,
-
-          durationMs:
-            getDurationMs(startedAt),
-
-          attempt,
-          maxAttempts
-        });
-
-
-        if (
-          providerError.retryable &&
-          attempt < maxAttempts
-        ) {
-          await sleep(
-            getRetryDelayMs(attempt)
-          );
-
-          continue;
-        }
-
-
-        throw providerError;
       }
+    }
 
-
-      // ------------------------------------------------
-      // BUSINESS ERROR
-      // ------------------------------------------------
-
-      if (
-        hasProviderBusinessError(
-          responseData
-        )
-      ) {
-
-        const classification =
-          classifyProviderError({
-            statusCode:
-              response.status,
-
-            responseData
-          });
-
-
-        const providerError =
-          createProviderError(
-            getProviderErrorMessage(
-              responseData,
-              "Provider returned an error"
-            ),
-            classification.code,
-            classification.retryable
-          );
-
-
-        lastError =
-          providerError;
-
-
-        await logProviderFailure({
-          providerId,
-          orderId,
-          operation,
-          method: "POST",
-          endpoint: url,
-          requestPayload,
-
-          httpStatus:
-            response.status,
-
-          responsePayload:
-            responseData,
-
-          errorMessage:
-            providerError.message,
-
-          errorCode:
-            providerError.code,
-
-          durationMs:
-            getDurationMs(startedAt),
-
-          attempt,
-          maxAttempts
-        });
-
-
-        if (
-          providerError.retryable &&
-          attempt < maxAttempts
-        ) {
-          await sleep(
-            getRetryDelayMs(attempt)
-          );
-
-          continue;
-        }
-
-
-        throw providerError;
-      }
-
-
-      // ------------------------------------------------
-      // RESPONSE VALIDATION
-      // ------------------------------------------------
-
-      if (
-        typeof validateResponse === "function"
-      ) {
-
-        const validationResult =
-          validateResponse(
-            responseData
-          );
-
-
-        if (
-          validationResult !== true
-        ) {
-
-          const providerError =
-            createProviderError(
-              validationResult ||
-                "Invalid provider response",
-
-              "INVALID_PROVIDER_RESPONSE",
-
-              false
-            );
-
-
-          await logProviderFailure({
-            providerId,
-            orderId,
-            operation,
-            method: "POST",
-            endpoint: url,
-            requestPayload,
-
-            httpStatus:
-              response.status,
-
-            responsePayload:
-              responseData,
-
-            errorMessage:
-              providerError.message,
-
-            errorCode:
-              providerError.code,
-
-            durationMs:
-              getDurationMs(startedAt),
-
-            attempt,
-            maxAttempts
-          });
-
-
-          throw providerError;
-        }
-      }
-
-
-      // ------------------------------------------------
-      // SUCCESS LOG
-      // ------------------------------------------------
-
+    // Logging is best-effort. A logging failure must never turn
+    // an accepted provider request into a failed one.
+    try {
       await logProviderSuccess({
         providerId,
         orderId,
@@ -719,120 +571,67 @@ const executeProviderRequest = async ({
         method: "POST",
         endpoint: url,
         requestPayload,
-
-        httpStatus:
-          response.status,
-
-        responsePayload:
-          responseData,
-
-        durationMs:
-          getDurationMs(startedAt),
-
+        httpStatus: response.status,
+        responsePayload: responseData,
+        durationMs: Date.now() - startedAt,
         attempt,
         maxAttempts
       });
-
-
-      return responseData;
-
-    } catch (error) {
-
-      lastError =
-        error;
-
-
-      const classification =
-        classifyProviderError({
-          error
-        });
-
-
-      const providerError =
-        error?.code
-          ? error
-          : createProviderError(
-              error?.message ||
-                `Provider ${operation.toLowerCase()} request failed`,
-
-              classification.code,
-
-              classification.retryable
-            );
-
-
-      const alreadyLoggedCodes = [
-        "RATE_LIMIT",
-        "PROVIDER_TIMEOUT",
-        "INSUFFICIENT_PROVIDER_BALANCE",
-        "PROVIDER_REQUEST_ERROR",
-        "PROVIDER_SERVER_ERROR",
-        "PROVIDER_NETWORK_ERROR",
-        "INVALID_PROVIDER_RESPONSE"
-      ];
-
-
-      const alreadyLogged =
-        alreadyLoggedCodes.includes(
-          providerError.code
-        );
-
-
-      if (!alreadyLogged) {
-
-        await logProviderFailure({
-          providerId,
-          orderId,
-          operation,
-          method: "POST",
-          endpoint: url,
-          requestPayload,
-
-          httpStatus: null,
-
-          responsePayload: null,
-
-          errorMessage:
-            providerError.message,
-
-          errorCode:
-            providerError.code,
-
-          durationMs:
-            getDurationMs(startedAt),
-
-          attempt,
-          maxAttempts
-        });
-      }
-
-
-      if (
-        providerError.retryable &&
-        attempt < maxAttempts
-      ) {
-
-        await sleep(
-          getRetryDelayMs(attempt)
-        );
-
-        continue;
-      }
-
-
-      throw providerError;
+    } catch (logError) {
+      console.error(
+        "Failed to write provider success log:",
+        logError.message
+      );
     }
+
+    return responseData;
+  } catch (error) {
+    let providerError;
+
+    if (typeof error?.retryable === "boolean") {
+      providerError = error;
+    } else {
+      const classification = classifyProviderError({
+        statusCode: responseStatus,
+        responseData,
+        error
+      });
+
+      providerError = createProviderError(
+        error?.message ||
+          `Provider ${operation} request failed`,
+        classification.code,
+        classification.retryable
+      );
+    }
+
+    // Tell callers whether the provider may have accepted the
+    // request even though we received an error.
+    if (providerError.outcomeUncertain === undefined) {
+      providerError.outcomeUncertain = isOutcomeUncertain({
+        responseStatus,
+        originalError: error,
+        providerError
+      });
+    }
+
+    await recordProviderFailure({
+      error: providerError,
+      providerId,
+      orderId,
+      operation,
+      endpoint: url,
+      requestPayload,
+      httpStatus: responseStatus,
+      responsePayload: responseData,
+      startedAt,
+      attempt,
+      maxAttempts
+    });
+
+    throw providerError;
   }
-
-
-  throw (
-    lastError ||
-    createProviderError(
-      "Provider request failed"
-    )
-  );
 };
-
 
 // ======================================================
 // CREATE PROVIDER ORDER
@@ -847,14 +646,12 @@ const createProviderOrder = async ({
   runs,
   interval
 }) => {
-
   if (!service) {
     throw createProviderError(
       "Provider service ID is required",
       "PROVIDER_SERVICE_ID_MISSING"
     );
   }
-
 
   if (!link) {
     throw createProviderError(
@@ -863,17 +660,12 @@ const createProviderOrder = async ({
     );
   }
 
-
-  if (
-    quantity === undefined ||
-    quantity === null
-  ) {
+  if (quantity === undefined || quantity === null) {
     throw createProviderError(
       "Provider order quantity is required",
       "PROVIDER_QUANTITY_MISSING"
     );
   }
-
 
   const additionalFields = {
     service,
@@ -881,64 +673,40 @@ const createProviderOrder = async ({
     quantity
   };
 
-
   if (runs !== undefined) {
     additionalFields.runs = runs;
   }
-
 
   if (interval !== undefined) {
     additionalFields.interval = interval;
   }
 
+  const responseData = await executeProviderRequest({
+    provider,
+    providerOrderId: null,
+    orderId,
+    operation: "create_order",
+    action: "add",
+    endpointPath: "/order/add",
+    additionalFields,
+    validateResponse: (data) => {
+      const providerOrderId =
+        data?.order || data?.orderId || data?.id;
 
-  const responseData =
-    await executeProviderRequest({
-      provider,
-      providerOrderId: null,
-      orderId,
-
-      operation: "CREATE",
-
-      action: "add",
-
-      endpointPath: "/order/add",
-
-      additionalFields,
-
-      validateResponse: (data) => {
-
-        const providerOrderId =
-          data?.order ||
-          data?.orderId ||
-          data?.id;
-
-
-        if (!providerOrderId) {
-          return (
-            "Invalid provider create order response"
-          );
-        }
-
-
-        return true;
-      }
-    });
-
-
-  const providerOrderId =
-    responseData?.order ||
-    responseData?.orderId ||
-    responseData?.id;
-
+      return providerOrderId
+        ? true
+        : "Invalid provider create order response";
+    }
+  });
 
   return {
-    providerOrderId,
-    providerResponse:
-      responseData
+    providerOrderId:
+      responseData.order ||
+      responseData.orderId ||
+      responseData.id,
+    providerResponse: responseData
   };
 };
-
 
 // ======================================================
 // FETCH PROVIDER ORDER STATUS
@@ -949,69 +717,37 @@ const fetchProviderOrderStatus = async ({
   providerOrderId,
   orderId
 }) => {
-
-  const responseData =
-    await executeProviderRequest({
-      provider,
-      providerOrderId,
-      orderId,
-
-      operation: "STATUS",
-
-      action: "status",
-
-      endpointPath: "/order/status",
-
-      validateResponse: (data) => {
-
-        if (!data?.status) {
-          return (
-            "Invalid provider status response"
-          );
-        }
-
-        return true;
-      }
-    });
-
+  const responseData = await executeProviderRequest({
+    provider,
+    providerOrderId,
+    orderId,
+    operation: "STATUS",
+    action: "status",
+    endpointPath: "/order/status",
+    validateResponse: (data) =>
+      data?.status
+        ? true
+        : "Invalid provider status response"
+  });
 
   const startCount =
     responseData.start_count !== undefined
-      ? Number(
-          responseData.start_count
-        )
+      ? Number(responseData.start_count)
       : null;
-
 
   const remains =
     responseData.remains !== undefined
-      ? Number(
-          responseData.remains
-        )
+      ? Number(responseData.remains)
       : null;
-
 
   return {
     providerOrderId,
-
-    status:
-      responseData.status,
-
-    startCount:
-      Number.isFinite(startCount)
-        ? startCount
-        : null,
-
-    remains:
-      Number.isFinite(remains)
-        ? remains
-        : null,
-
-    providerResponse:
-      responseData
+    status: responseData.status,
+    startCount: Number.isFinite(startCount) ? startCount : null,
+    remains: Number.isFinite(remains) ? remains : null,
+    providerResponse: responseData
   };
 };
-
 
 // ======================================================
 // CANCEL PROVIDER ORDER
@@ -1022,43 +758,25 @@ const cancelProviderOrder = async ({
   providerOrderId,
   orderId
 }) => {
-
-  const responseData =
-    await executeProviderRequest({
-      provider,
-      providerOrderId,
-      orderId,
-
-      operation: "CANCEL",
-
-      action: "cancel",
-
-      endpointPath: "/order/cancel",
-
-      validateResponse: (data) => {
-
-        if (!data?.order) {
-          return (
-            "Invalid provider cancel response"
-          );
-        }
-
-        return true;
-      }
-    });
-
+  const responseData = await executeProviderRequest({
+    provider,
+    providerOrderId,
+    orderId,
+    operation: "CANCEL",
+    action: "cancel",
+    endpointPath: "/order/cancel",
+    validateResponse: (data) =>
+      data?.order
+        ? true
+        : "Invalid provider cancel response"
+  });
 
   return {
     providerOrderId,
-
-    status:
-      responseData.status,
-
-    providerResponse:
-      responseData
+    status: responseData.status,
+    providerResponse: responseData
   };
 };
-
 
 // ======================================================
 // REFILL PROVIDER ORDER
@@ -1069,58 +787,33 @@ const refillProviderOrder = async ({
   providerOrderId,
   orderId
 }) => {
+  const responseData = await executeProviderRequest({
+    provider,
+    providerOrderId,
+    orderId,
+    operation: "REFILL",
+    action: "refill",
+    endpointPath: "/order/refill",
+    validateResponse: (data) => {
+      const refillId =
+        data?.refill || data?.refillId || data?.id;
 
-  const responseData =
-    await executeProviderRequest({
-      provider,
-      providerOrderId,
-      orderId,
-
-      operation: "REFILL",
-
-      action: "refill",
-
-      endpointPath: "/order/refill",
-
-      validateResponse: (data) => {
-
-        const refillId =
-          data?.refill ||
-          data?.refillId ||
-          data?.id;
-
-
-        if (!refillId) {
-          return (
-            "Invalid provider refill response"
-          );
-        }
-
-
-        return true;
-      }
-    });
-
-
-  const refillId =
-    responseData?.refill ||
-    responseData?.refillId ||
-    responseData?.id;
-
+      return refillId
+        ? true
+        : "Invalid provider refill response";
+    }
+  });
 
   return {
     providerOrderId,
-
-    refillId,
-
-    status:
-      responseData.status,
-
-    providerResponse:
-      responseData
+    refillId:
+      responseData.refill ||
+      responseData.refillId ||
+      responseData.id,
+    status: responseData.status,
+    providerResponse: responseData
   };
 };
-
 
 // ======================================================
 // EXPORTS
@@ -1132,5 +825,6 @@ module.exports = {
   cancelProviderOrder,
   refillProviderOrder,
   classifyProviderError,
-  fetchWithTimeout
+  fetchWithTimeout,
+  isOutcomeUncertain
 };

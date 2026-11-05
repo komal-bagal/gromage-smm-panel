@@ -15,6 +15,13 @@ const adminMiddleware =
   require("../middleware/roleMiddleware");
 
 // ======================================================
+// PROVIDER LOG ROUTES
+// ======================================================
+
+const providerLogRoutes =
+  require("./providerLogRoutes");
+
+// ======================================================
 // PROVIDER CONTROLLER
 // ======================================================
 
@@ -25,8 +32,11 @@ const {
   updateProvider,
   deleteProvider,
   updateProviderStatus,
+  updateProviderPriority,
   testProviderConnection,
-  syncProviderServices
+  getProviderBalance,
+  syncProviderServices,
+  importSelectedProviderServices
 } = require("../controllers/providerController");
 
 // ======================================================
@@ -50,6 +60,26 @@ router.get(
 );
 
 // ======================================================
+// PROVIDER LOGS
+// ======================================================
+//
+// GET:
+//
+// /api/provider/logs
+//
+// Purpose:
+//
+// Fetch provider API logs with filtering
+// and pagination.
+//
+// ======================================================
+
+router.use(
+  "/logs",
+  providerLogRoutes
+);
+
+// ======================================================
 // TEST PROVIDER CONNECTION
 // ======================================================
 
@@ -58,6 +88,27 @@ router.post(
   authMiddleware,
   adminMiddleware,
   testProviderConnection
+);
+
+// ======================================================
+// GET PROVIDER BALANCE
+// ======================================================
+//
+// POST:
+//
+// /api/provider/:providerId/balance
+//
+// Purpose:
+//
+// Fetch current balance from the provider.
+//
+// ======================================================
+
+router.post(
+  "/:providerId/balance",
+  authMiddleware,
+  adminMiddleware,
+  getProviderBalance
 );
 
 // ======================================================
@@ -72,13 +123,73 @@ router.post(
 );
 
 // ======================================================
+// IMPORT SELECTED PROVIDER SERVICES
+// ======================================================
+//
+// POST:
+//
+// /api/provider/:providerId/import-selected
+//
+// Body:
+//
+// {
+//   "serviceIds": ["1001", "1003"]
+// }
+//
+// Purpose:
+//
+// Import only selected services from the provider.
+//
+// ======================================================
+
+router.post(
+  "/:providerId/import-selected",
+  authMiddleware,
+  adminMiddleware,
+  importSelectedProviderServices
+);
+
+// ======================================================
+// UPDATE PROVIDER PRIORITY
+// ======================================================
+//
+// PATCH:
+//
+// /api/provider/:providerId/priority
+//
+// Body:
+//
+// {
+//   "priority": 1
+// }
+//
+// Lower priority number = higher priority.
+//
+// Example:
+//
+// priority 1 -> First provider
+// priority 2 -> Second provider
+// priority 3 -> Third provider
+//
+// ======================================================
+
+router.patch(
+  "/:providerId/priority",
+  authMiddleware,
+  adminMiddleware,
+  updateProviderPriority
+);
+
+// ======================================================
 // SYNC ORDER STATUS FROM PROVIDER
 // ======================================================
 //
 // POST:
+//
 // /api/provider/orders/:orderId/sync-status
 //
 // Purpose:
+//
 // Fetch latest order status from provider and
 // update local order status, startCount and remains.
 //
@@ -96,9 +207,11 @@ router.post(
 // ======================================================
 //
 // POST:
+//
 // /api/provider/orders/:orderId/cancel
 //
 // Purpose:
+//
 // Cancel an eligible order at the provider and
 // update the local order status to canceled.
 //
@@ -116,9 +229,11 @@ router.post(
 // ======================================================
 //
 // POST:
+//
 // /api/provider/orders/:orderId/refill
 //
 // Purpose:
+//
 // Request refill for an eligible order where the
 // service/provider supports refill.
 //

@@ -27,25 +27,14 @@ const normalizeProviderStatus = (status) => {
 
   const statusMap = {
     pending: "pending",
-
     processing: "processing",
-
     in_progress: "in_progress",
-
-    "in progress":
-      "in_progress",
-
+    "in progress": "in_progress",
     completed: "completed",
-
     partial: "partial",
-
     canceled: "canceled",
-
-    cancelled:
-      "canceled",
-
+    cancelled: "canceled",
     refunded: "refunded",
-
     failed: "failed"
   };
 
@@ -59,28 +48,19 @@ const normalizeProviderStatus = (status) => {
 // SYNC ORDER STATUS FROM PROVIDER
 // ======================================================
 
-const syncOrderStatus = async (
-  req,
-  res
-) => {
+const syncOrderStatus = async (req, res) => {
   try {
-
-    const {
-      orderId
-    } = req.params;
+    const { orderId } = req.params;
 
     // --------------------------------------------------
     // VALIDATE ORDER ID
     // --------------------------------------------------
 
     if (
-      !mongoose.Types.ObjectId.isValid(
-        orderId
-      )
+      !mongoose.Types.ObjectId.isValid(orderId)
     ) {
       return res.status(400).json({
-        message:
-          "Invalid order ID"
+        message: "Invalid order ID"
       });
     }
 
@@ -89,14 +69,11 @@ const syncOrderStatus = async (
     // --------------------------------------------------
 
     const order =
-      await Order.findById(
-        orderId
-      );
+      await Order.findById(orderId);
 
     if (!order) {
       return res.status(404).json({
-        message:
-          "Order not found"
+        message: "Order not found"
       });
     }
 
@@ -106,8 +83,7 @@ const syncOrderStatus = async (
 
     if (!order.providerId) {
       return res.status(400).json({
-        message:
-          "Order has no provider"
+        message: "Order has no provider"
       });
     }
 
@@ -117,26 +93,22 @@ const syncOrderStatus = async (
 
     if (!order.providerOrderId) {
       return res.status(400).json({
-        message:
-          "Provider order ID is missing"
+        message: "Provider order ID is missing"
       });
     }
 
     // --------------------------------------------------
-    // FIND PROVIDER WITH API KEY
+    // FIND PROVIDER
     // --------------------------------------------------
 
     const provider =
       await Provider.findById(
         order.providerId
-      ).select(
-        "+apiKey"
-      );
+      ).select("+apiKey");
 
     if (!provider) {
       return res.status(404).json({
-        message:
-          "Provider not found"
+        message: "Provider not found"
       });
     }
 
@@ -144,13 +116,9 @@ const syncOrderStatus = async (
     // CHECK PROVIDER STATUS
     // --------------------------------------------------
 
-    if (
-      provider.status !==
-      "active"
-    ) {
+    if (provider.status !== "active") {
       return res.status(400).json({
-        message:
-          "Provider is inactive"
+        message: "Provider is inactive"
       });
     }
 
@@ -161,7 +129,6 @@ const syncOrderStatus = async (
     let providerResult;
 
     try {
-
       providerResult =
         await fetchProviderOrderStatus({
           provider,
@@ -172,11 +139,7 @@ const syncOrderStatus = async (
           orderId:
             order._id
         });
-
-    } catch (
-      providerError
-    ) {
-
+    } catch (providerError) {
       console.error(
         "ORDER STATUS SYNC PROVIDER ERROR:",
         providerError
@@ -224,7 +187,6 @@ const syncOrderStatus = async (
       ) &&
       providerResult.startCount >= 0
     ) {
-
       order.startCount =
         providerResult.startCount;
     }
@@ -239,7 +201,6 @@ const syncOrderStatus = async (
       ) &&
       providerResult.remains >= 0
     ) {
-
       order.remains =
         providerResult.remains;
     }
@@ -264,7 +225,6 @@ const syncOrderStatus = async (
       previousStatus !==
       newStatus
     ) {
-
       await OrderStatusLog.create({
         orderId:
           order._id,
@@ -289,12 +249,10 @@ const syncOrderStatus = async (
     // --------------------------------------------------
 
     return res.status(200).json({
-
       message:
         "Order status synchronized successfully",
 
       order: {
-
         _id:
           order._id,
 
@@ -318,7 +276,6 @@ const syncOrderStatus = async (
     });
 
   } catch (error) {
-
     console.error(
       "SYNC ORDER STATUS ERROR:",
       error
@@ -338,30 +295,19 @@ const syncOrderStatus = async (
 // CANCEL ORDER
 // ======================================================
 
-const cancelOrder = async (
-  req,
-  res
-) => {
-
+const cancelOrder = async (req, res) => {
   try {
-
-    const {
-      orderId
-    } = req.params;
+    const { orderId } = req.params;
 
     // --------------------------------------------------
     // VALIDATE ORDER ID
     // --------------------------------------------------
 
     if (
-      !mongoose.Types.ObjectId.isValid(
-        orderId
-      )
+      !mongoose.Types.ObjectId.isValid(orderId)
     ) {
-
       return res.status(400).json({
-        message:
-          "Invalid order ID"
+        message: "Invalid order ID"
       });
     }
 
@@ -370,14 +316,11 @@ const cancelOrder = async (
     // --------------------------------------------------
 
     const order =
-      await Order.findById(
-        orderId
-      );
+      await Order.findById(orderId);
 
     if (!order) {
       return res.status(404).json({
-        message:
-          "Order not found"
+        message: "Order not found"
       });
     }
 
@@ -387,8 +330,7 @@ const cancelOrder = async (
 
     if (!order.providerId) {
       return res.status(400).json({
-        message:
-          "Order has no provider"
+        message: "Order has no provider"
       });
     }
 
@@ -414,8 +356,7 @@ const cancelOrder = async (
 
     if (!service) {
       return res.status(404).json({
-        message:
-          "Service not found"
+        message: "Service not found"
       });
     }
 
@@ -426,7 +367,13 @@ const cancelOrder = async (
     if (!service.cancel) {
       return res.status(400).json({
         message:
-          "Cancel is not supported for this service"
+          "Cancel is not supported for this service",
+
+        serviceId:
+          service.serviceId,
+
+        cancelSupported:
+          false
       });
     }
 
@@ -438,7 +385,6 @@ const cancelOrder = async (
       order.status ===
       "completed"
     ) {
-
       return res.status(400).json({
         message:
           "Completed order cannot be canceled"
@@ -449,7 +395,6 @@ const cancelOrder = async (
       order.status ===
       "canceled"
     ) {
-
       return res.status(400).json({
         message:
           "Order is already canceled"
@@ -457,20 +402,17 @@ const cancelOrder = async (
     }
 
     // --------------------------------------------------
-    // FIND PROVIDER WITH API KEY
+    // FIND PROVIDER
     // --------------------------------------------------
 
     const provider =
       await Provider.findById(
         order.providerId
-      ).select(
-        "+apiKey"
-      );
+      ).select("+apiKey");
 
     if (!provider) {
       return res.status(404).json({
-        message:
-          "Provider not found"
+        message: "Provider not found"
       });
     }
 
@@ -482,7 +424,6 @@ const cancelOrder = async (
       provider.status !==
       "active"
     ) {
-
       return res.status(400).json({
         message:
           "Provider is inactive"
@@ -496,7 +437,6 @@ const cancelOrder = async (
     let providerResult;
 
     try {
-
       providerResult =
         await cancelProviderOrder({
           provider,
@@ -507,18 +447,13 @@ const cancelOrder = async (
           orderId:
             order._id
         });
-
-    } catch (
-      providerError
-    ) {
-
+    } catch (providerError) {
       console.error(
         "ORDER CANCEL PROVIDER ERROR:",
         providerError
       );
 
       return res.status(502).json({
-
         message:
           "Unable to cancel order at provider",
 
@@ -558,7 +493,6 @@ const cancelOrder = async (
     // --------------------------------------------------
 
     await OrderStatusLog.create({
-
       orderId:
         order._id,
 
@@ -582,12 +516,10 @@ const cancelOrder = async (
     // --------------------------------------------------
 
     return res.status(200).json({
-
       message:
         "Order canceled successfully",
 
       order: {
-
         _id:
           order._id,
 
@@ -605,14 +537,12 @@ const cancelOrder = async (
     });
 
   } catch (error) {
-
     console.error(
       "CANCEL ORDER ERROR:",
       error
     );
 
     return res.status(500).json({
-
       message:
         "Server error",
 
@@ -626,27 +556,30 @@ const cancelOrder = async (
 // REFILL ORDER
 // ======================================================
 
-const refillOrder = async (
-  req,
-  res
-) => {
-
+const refillOrder = async (req, res) => {
   try {
+    const { orderId } = req.params;
 
-    const {
+    console.log(
+      "===================================="
+    );
+
+    console.log(
+      "REFILL ORDER REQUEST"
+    );
+
+    console.log(
+      "ORDER ID:",
       orderId
-    } = req.params;
+    );
 
     // --------------------------------------------------
     // VALIDATE ORDER ID
     // --------------------------------------------------
 
     if (
-      !mongoose.Types.ObjectId.isValid(
-        orderId
-      )
+      !mongoose.Types.ObjectId.isValid(orderId)
     ) {
-
       return res.status(400).json({
         message:
           "Invalid order ID"
@@ -668,6 +601,21 @@ const refillOrder = async (
           "Order not found"
       });
     }
+
+    console.log(
+      "ORDER STATUS:",
+      order.status
+    );
+
+    console.log(
+      "PROVIDER ID:",
+      order.providerId
+    );
+
+    console.log(
+      "PROVIDER ORDER ID:",
+      order.providerOrderId
+    );
 
     // --------------------------------------------------
     // CHECK PROVIDER
@@ -707,14 +655,40 @@ const refillOrder = async (
       });
     }
 
+    console.log(
+      "SERVICE ID:",
+      service.serviceId
+    );
+
+    console.log(
+      "SERVICE NAME:",
+      service.name
+    );
+
+    console.log(
+      "SERVICE REFILL:",
+      service.refill
+    );
+
     // --------------------------------------------------
     // CHECK REFILL SUPPORT
     // --------------------------------------------------
 
-    if (!service.refill) {
+    if (
+      service.refill !== true
+    ) {
       return res.status(400).json({
         message:
-          "Refill is not supported for this service"
+          "Refill is not supported for this service",
+
+        serviceId:
+          service.serviceId,
+
+        serviceName:
+          service.name,
+
+        refillSupported:
+          Boolean(service.refill)
       });
     }
 
@@ -726,7 +700,6 @@ const refillOrder = async (
       order.status ===
       "canceled"
     ) {
-
       return res.status(400).json({
         message:
           "Canceled order cannot be refilled"
@@ -737,7 +710,6 @@ const refillOrder = async (
       order.status ===
       "failed"
     ) {
-
       return res.status(400).json({
         message:
           "Failed order cannot be refilled"
@@ -754,10 +726,17 @@ const refillOrder = async (
       order.status !==
       "partial"
     ) {
-
       return res.status(400).json({
         message:
-          "Order can be refilled only when it is completed or partial"
+          "Order can be refilled only when it is completed or partial",
+
+        currentStatus:
+          order.status,
+
+        allowedStatuses: [
+          "completed",
+          "partial"
+        ]
       });
     }
 
@@ -768,9 +747,7 @@ const refillOrder = async (
     if (
       order.refillId
     ) {
-
       return res.status(400).json({
-
         message:
           "Order has already been refilled",
 
@@ -780,15 +757,13 @@ const refillOrder = async (
     }
 
     // --------------------------------------------------
-    // FIND PROVIDER WITH API KEY
+    // FIND PROVIDER
     // --------------------------------------------------
 
     const provider =
       await Provider.findById(
         order.providerId
-      ).select(
-        "+apiKey"
-      );
+      ).select("+apiKey");
 
     if (!provider) {
       return res.status(404).json({
@@ -796,6 +771,11 @@ const refillOrder = async (
           "Provider not found"
       });
     }
+
+    console.log(
+      "PROVIDER:",
+      provider.name
+    );
 
     // --------------------------------------------------
     // CHECK PROVIDER STATUS
@@ -805,7 +785,6 @@ const refillOrder = async (
       provider.status !==
       "active"
     ) {
-
       return res.status(400).json({
         message:
           "Provider is inactive"
@@ -816,10 +795,13 @@ const refillOrder = async (
     // REFILL AT PROVIDER
     // --------------------------------------------------
 
+    console.log(
+      "CALLING PROVIDER REFILL API..."
+    );
+
     let providerResult;
 
     try {
-
       providerResult =
         await refillProviderOrder({
           provider,
@@ -831,17 +813,13 @@ const refillOrder = async (
             order._id
         });
 
-    } catch (
-      providerError
-    ) {
-
+    } catch (providerError) {
       console.error(
         "ORDER REFILL PROVIDER ERROR:",
         providerError
       );
 
       return res.status(502).json({
-
         message:
           "Unable to refill order at provider",
 
@@ -850,6 +828,29 @@ const refillOrder = async (
 
         providerResponse:
           providerError.providerResponse ||
+          null
+      });
+    }
+
+    console.log(
+      "PROVIDER REFILL RESULT:",
+      providerResult
+    );
+
+    // --------------------------------------------------
+    // VALIDATE PROVIDER REFILL ID
+    // --------------------------------------------------
+
+    if (
+      !providerResult ||
+      !providerResult.refillId
+    ) {
+      return res.status(502).json({
+        message:
+          "Provider did not return a refill ID",
+
+        providerResponse:
+          providerResult?.providerResponse ||
           null
       });
     }
@@ -874,7 +875,6 @@ const refillOrder = async (
     // --------------------------------------------------
 
     await OrderStatusLog.create({
-
       orderId:
         order._id,
 
@@ -894,17 +894,24 @@ const refillOrder = async (
         providerResult.providerResponse
     });
 
+    console.log(
+      "REFILL ORDER SUCCESS:",
+      providerResult.refillId
+    );
+
+    console.log(
+      "===================================="
+    );
+
     // --------------------------------------------------
     // SUCCESS RESPONSE
     // --------------------------------------------------
 
     return res.status(200).json({
-
       message:
         "Order refill requested successfully",
 
       order: {
-
         _id:
           order._id,
 
@@ -923,14 +930,12 @@ const refillOrder = async (
     });
 
   } catch (error) {
-
     console.error(
       "REFILL ORDER ERROR:",
       error
     );
 
     return res.status(500).json({
-
       message:
         "Server error",
 

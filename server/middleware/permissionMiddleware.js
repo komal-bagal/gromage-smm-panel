@@ -1,3 +1,4 @@
+
 const Role = require("../models/Role");
 const Permission = require("../models/Permission");
 
@@ -8,7 +9,6 @@ const Permission = require("../models/Permission");
 const permissionMiddleware = (permissionName) => {
   return async (req, res, next) => {
     try {
-
       // --------------------------------------------------
       // CHECK AUTHENTICATION
       // --------------------------------------------------
@@ -23,14 +23,21 @@ const permissionMiddleware = (permissionName) => {
       // VALIDATE PERMISSION NAME
       // --------------------------------------------------
 
-      if (!permissionName) {
+      if (
+        typeof permissionName !== "string" ||
+        !permissionName.trim()
+      ) {
+        console.error(
+          "PERMISSION MIDDLEWARE ERROR: Invalid permission name"
+        );
+
         return res.status(500).json({
-          message: "Permission name is required"
+          message: "Server error"
         });
       }
 
       // --------------------------------------------------
-      // FIND USER ROLE
+      // FIND ACTIVE USER ROLE
       // --------------------------------------------------
 
       const role = await Role.findOne({
@@ -52,7 +59,11 @@ const permissionMiddleware = (permissionName) => {
       // CHECK PERMISSIONS
       // --------------------------------------------------
 
-      const hasPermission = role.permissions.some(
+      const permissions = Array.isArray(role.permissions)
+        ? role.permissions
+        : [];
+
+      const hasPermission = permissions.some(
         (permission) =>
           permission &&
           permission.name === permissionName &&
@@ -73,18 +84,18 @@ const permissionMiddleware = (permissionName) => {
       // PERMISSION GRANTED
       // --------------------------------------------------
 
-      next();
+      return next();
 
     } catch (error) {
-
+      // Log details on the server only.
       console.error(
         "PERMISSION MIDDLEWARE ERROR:",
         error
       );
 
+      // Do not expose internal error details to the client.
       return res.status(500).json({
-        message: "Server error",
-        error: error.message
+        message: "Server error"
       });
     }
   };

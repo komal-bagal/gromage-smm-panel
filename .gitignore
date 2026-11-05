@@ -4,3 +4,17 @@ dist
 build
 coverage
 .vscode
+# Local generated files
+server/uploads/
+*.backup
+*.bak
+server/*-audit.txt
+server/*-debug.txt
+server/*-log.txt
+server/audit-report.json
+server/state.*
+server/test-output.txt
+server/test-server-output.txt
+auth-diff.txt
+payment-staged-diff.txt
+payment-unstaged-diff.txt

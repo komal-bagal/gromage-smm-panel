@@ -1,9 +1,9 @@
+
 const express = require("express");
 
 const router = express.Router();
 
 const authMiddleware = require("../middleware/authMiddleware");
-
 const permissionMiddleware = require(
   "../middleware/permissionMiddleware"
 );
@@ -13,12 +13,15 @@ const {
   getPaymentById,
   approveRecharge,
   rejectRecharge,
-  paymentWebhook
+  paymentWebhook,
+  paytmCallback,
+  cashfreeWebhook,
 } = require("../controllers/paymentController");
-
 
 // ======================================================
 // GET ALL PAYMENTS
+// GET /api/payments
+// Requires authentication and payment.view permission
 // ======================================================
 
 router.get(
@@ -28,9 +31,9 @@ router.get(
   getAllPayments
 );
 
-
 // ======================================================
-// PAYMENT WEBHOOK
+// GENERIC PAYMENT WEBHOOK
+// POST /api/payments/webhook
 // ======================================================
 
 router.post(
@@ -38,9 +41,31 @@ router.post(
   paymentWebhook
 );
 
+// ======================================================
+// PAYTM CALLBACK
+// POST /api/payments/paytm/callback
+// ======================================================
+
+router.post(
+  "/paytm/callback",
+  paytmCallback
+);
+
+// ======================================================
+// CASHFREE WEBHOOK
+// POST /api/payments/cashfree/webhook
+// Verifies the Cashfree signature in the controller
+// ======================================================
+
+router.post(
+  "/cashfree/webhook",
+  cashfreeWebhook
+);
 
 // ======================================================
 // GET PAYMENT BY ID
+// GET /api/payments/:paymentId
+// Requires authentication and payment.view permission
 // ======================================================
 
 router.get(
@@ -50,9 +75,10 @@ router.get(
   getPaymentById
 );
 
-
 // ======================================================
 // APPROVE RECHARGE
+// POST /api/payments/:paymentId/approve
+// Requires authentication and payment.approve permission
 // ======================================================
 
 router.post(
@@ -62,9 +88,10 @@ router.post(
   approveRecharge
 );
 
-
 // ======================================================
 // REJECT RECHARGE
+// POST /api/payments/:paymentId/reject
+// Requires authentication and payment.reject permission
 // ======================================================
 
 router.post(
@@ -73,6 +100,5 @@ router.post(
   permissionMiddleware("payment.reject"),
   rejectRecharge
 );
-
 
 module.exports = router;

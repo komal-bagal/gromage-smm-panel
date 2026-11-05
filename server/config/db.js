@@ -1,16 +1,36 @@
+
 const mongoose = require("mongoose");
 
-const connectDB = async () => {
+const connectDB = async (label = "MongoDB") => {
   try {
-    console.log("MONGO_URI:", process.env.MONGO_URI);
+    const mongoUri =
+      process.env.NODE_ENV === "test"
+        ? process.env.TEST_MONGODB_URI
+        : process.env.MONGO_URI;
 
-    await mongoose.connect(process.env.MONGO_URI, {
+    if (!mongoUri) {
+      throw new Error(
+        process.env.NODE_ENV === "test"
+          ? "TEST_MONGODB_URI is not configured"
+          : "MONGO_URI is not configured"
+      );
+    }
+
+    console.log(`${label}: Connecting to MongoDB...`);
+
+    await mongoose.connect(mongoUri, {
       family: 4,
     });
 
-    console.log("✅ MongoDB Connected");
+    console.log(
+      `${label} MongoDB Connected: ${mongoose.connection.name}`
+    );
   } catch (err) {
-    console.error("MongoDB Connection Error:", err);
+    console.error(
+      `${label} MongoDB Connection Error:`,
+      err.message
+    );
+
     process.exit(1);
   }
 };

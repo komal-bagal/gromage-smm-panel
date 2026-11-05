@@ -16,7 +16,9 @@ const {
   getOrderStatusLogs,
   updateOrderStatus,
   deleteOrder,
-  syncOrderProviderStatus
+  syncOrderProviderStatus,
+  requestOrderRefill,
+  cancelOrder
 } = require("../controllers/orderController");
 
 // ======================================================
@@ -31,7 +33,7 @@ router.post(
 
 // ======================================================
 // GET ALL ORDERS
-// ADMIN ONLY
+// ADMIN / STAFF
 // ======================================================
 
 router.get(
@@ -62,6 +64,26 @@ router.post(
 );
 
 // ======================================================
+// REQUEST ORDER REFILL
+// ======================================================
+
+router.post(
+  "/:orderId/refill",
+  authMiddleware,
+  requestOrderRefill
+);
+
+// ======================================================
+// CANCEL ORDER
+// ======================================================
+
+router.post(
+  "/:orderId/cancel",
+  authMiddleware,
+  cancelOrder
+);
+
+// ======================================================
 // GET ORDER STATUS LOGS
 // ======================================================
 
@@ -83,7 +105,7 @@ router.get(
 
 // ======================================================
 // UPDATE ORDER STATUS
-// ADMIN ONLY
+// ADMIN / STAFF
 // ======================================================
 
 router.patch(
@@ -95,7 +117,7 @@ router.patch(
 
 // ======================================================
 // DELETE ORDER
-// ADMIN ONLY
+// ADMIN / STAFF
 // ======================================================
 
 router.delete(

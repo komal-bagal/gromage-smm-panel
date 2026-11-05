@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 // ======================================================
@@ -41,6 +42,23 @@ const orderSchema = new mongoose.Schema(
       ref: "Service",
       required: true,
       index: true
+    },
+
+    // ==================================================
+    // RESELLER
+    // ==================================================
+
+    resellerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Reseller",
+      default: null,
+      index: true
+    },
+
+    // Prevent duplicate reseller refunds
+    resellerRefundedAt: {
+      type: Date,
+      default: null
     },
 
     // ==================================================
@@ -100,6 +118,17 @@ const orderSchema = new mongoose.Schema(
     },
 
     // ==================================================
+    // WALLET
+    // ==================================================
+
+    walletId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Wallet",
+      default: null,
+      index: true
+    },
+
+    // ==================================================
     // WALLET TRANSACTION
     // ==================================================
 
@@ -133,6 +162,36 @@ const orderSchema = new mongoose.Schema(
     charge: {
       type: Number,
       required: true,
+      min: 0
+    },
+
+    // ==================================================
+    // COUPON / DISCOUNT
+    // ==================================================
+
+    couponId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Coupon",
+      default: null,
+      index: true
+    },
+
+    couponCode: {
+      type: String,
+      default: null,
+      trim: true,
+      uppercase: true
+    },
+
+    discountAmount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+
+    originalCharge: {
+      type: Number,
+      default: 0,
       min: 0
     },
 
@@ -203,6 +262,21 @@ const orderSchema = new mongoose.Schema(
       index: true
     },
 
+    // Number of times the drip-feed order should run
+    runs: {
+      type: Number,
+      default: null,
+      min: 1
+    },
+
+    // Delay between drip-feed runs
+    // Stored in seconds
+    interval: {
+      type: Number,
+      default: null,
+      min: 1
+    },
+
     // ==================================================
     // NOTE
     // ==================================================
@@ -222,65 +296,53 @@ const orderSchema = new mongoose.Schema(
 // INDEXES
 // ======================================================
 
-// ------------------------------------------------------
 // User order history
-// ------------------------------------------------------
-
 orderSchema.index({
   userId: 1,
   createdAt: -1
 });
 
-// ------------------------------------------------------
 // User + status order queries
-// ------------------------------------------------------
-
 orderSchema.index({
   userId: 1,
   status: 1,
   createdAt: -1
 });
 
-// ------------------------------------------------------
 // Provider + status lookup
-// Useful for background status synchronization
-// ------------------------------------------------------
-
 orderSchema.index({
   providerId: 1,
   status: 1,
   createdAt: -1
 });
 
-// ------------------------------------------------------
 // Status based queries
-// ------------------------------------------------------
-
 orderSchema.index({
   status: 1,
   createdAt: -1
 });
 
-// ------------------------------------------------------
 // Drip feed / processing queries
-// ------------------------------------------------------
-
 orderSchema.index({
   dripFeed: 1,
   status: 1,
   createdAt: -1
 });
 
+// Coupon lookup
+orderSchema.index({
+  couponId: 1,
+  createdAt: -1
+});
+
+// Reseller order history
+orderSchema.index({
+  resellerId: 1,
+  createdAt: -1
+});
+
 // ======================================================
 // IDEMPOTENCY INDEX
-// ======================================================
-//
-// Same Idempotency-Key cannot create another order.
-//
-// No key -> allowed
-// Different key -> allowed
-// Same key -> blocked
-//
 // ======================================================
 
 orderSchema.index(
@@ -299,13 +361,6 @@ orderSchema.index(
 
 // ======================================================
 // PROVIDER ORDER UNIQUE PROTECTION
-// ======================================================
-//
-// A providerOrderId should belong to only one order
-// for a particular provider.
-//
-// Orders without providerOrderId are allowed.
-//
 // ======================================================
 
 orderSchema.index(
@@ -330,9 +385,21 @@ orderSchema.index(
 // MODEL
 // ======================================================
 
-const Order = mongoose.model(
-  "Order",
-  orderSchema
+const Order = mongoose.model("Order", orderSchema);
+
+// ======================================================
+// DEBUG - VERIFY RESELLER FIELD
+// ======================================================
+
+console.log("ORDER MODEL LOADED");
+console.log(
+  "ORDER resellerId PATH:",
+  Order.schema.path("resellerId") ? "FOUND" : "NOT FOUND"
+);
+
+console.log(
+  "ORDER resellerRefundedAt PATH:",
+  Order.schema.path("resellerRefundedAt") ? "FOUND" : "NOT FOUND"
 );
 
 module.exports = Order;

@@ -1,45 +1,107 @@
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 const User = require("../models/User");
+
+// ======================================================
+// JWT CONFIGURATION
+// ======================================================
+
+const JWT_ISSUER = "gromage-smm-panel";
+const JWT_AUDIENCE = "gromage-client";
+const JWT_ALGORITHM = "HS256";
+
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+
+  if (!secret || secret.length < 32) {
+    throw new Error("JWT_SECRET is missing or too weak");
+  }
+
+  return secret;
+};
+
+// ======================================================
+// AUTH MIDDLEWARE
+// ======================================================
 
 const authMiddleware = async (req, res, next) => {
   try {
+    // --------------------------------------------------
+    // AUTHORIZATION HEADER
+    // --------------------------------------------------
+
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
       return res.status(401).json({
-        message: "No token provided"
+        message: "Authentication required"
       });
     }
 
-    const token = authHeader.split(" ")[1];
+    // Only accept: Authorization: Bearer <token>
+    const parts = authHeader.trim().split(/\s+/);
 
-    if (!token) {
+    if (
+      parts.length !== 2 ||
+      parts[0].toLowerCase() !== "bearer" ||
+      !parts[1]
+    ) {
       return res.status(401).json({
-        message: "Invalid token format"
+        message: "Invalid authorization format"
       });
     }
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    const token = parts[1];
 
-    console.log(
-      "DECODED USER ID:",
-      decoded.userId
-    );
+    // --------------------------------------------------
+    // JWT SECRET
+    // --------------------------------------------------
 
-    const user = await User.findById(
-      decoded.userId
-    ).select("-password");
+    const jwtSecret = getJwtSecret();
+
+    // --------------------------------------------------
+    // VERIFY JWT
+    // --------------------------------------------------
+
+    const decoded = jwt.verify(token, jwtSecret, {
+      algorithms: [JWT_ALGORITHM],
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE
+    });
+
+    // --------------------------------------------------
+    // VALIDATE USER ID
+    // --------------------------------------------------
+
+    if (
+      !decoded ||
+      !decoded.userId ||
+      !mongoose.Types.ObjectId.isValid(decoded.userId)
+    ) {
+      return res.status(401).json({
+        message: "Invalid token"
+      });
+    }
+
+    // --------------------------------------------------
+    // FIND USER
+    // --------------------------------------------------
+
+    const user = await User.findById(decoded.userId)
+      .select("_id name email balance role status")
+      .lean();
 
     if (!user) {
-      console.log("AUTH USER NOT FOUND");
-
       return res.status(401).json({
-        message: "User not found"
+        message: "Authentication failed"
       });
     }
+
+    // --------------------------------------------------
+    // ACCOUNT STATUS
+    // Blocks only suspended accounts, consistent with
+    // loginUser in authController.js
+    // --------------------------------------------------
 
     if (user.status === "suspended") {
       return res.status(403).json({
@@ -47,40 +109,33 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
-    console.log(
-      "AUTH USER ID:",
-      user._id
-    );
-
-    console.log(
-      "AUTH USER EMAIL:",
-      user.email
-    );
-
-    console.log(
-      "AUTH USER ROLE:",
-      user.role
-    );
-
-    console.log(
-      "AUTH USER STATUS:",
-      user.status
-    );
+    // --------------------------------------------------
+    // ATTACH AUTHENTICATED USER
+    // --------------------------------------------------
 
     req.user = user;
-
     req.userId = user._id;
 
-    next();
+    return next();
 
   } catch (error) {
-    console.error(
-      "AUTH ERROR:",
-      error.message
-    );
+    // JWT errors are intentionally not exposed.
+    if (
+      error.name === "TokenExpiredError" ||
+      error.name === "JsonWebTokenError" ||
+      error.name === "NotBeforeError"
+    ) {
+      return res.status(401).json({
+        message: "Invalid or expired token"
+      });
+    }
 
-    return res.status(401).json({
-      message: "Invalid or expired token"
+    // Log server/configuration errors without exposing
+    // secrets or token contents.
+    console.error("AUTH MIDDLEWARE ERROR:", error.message);
+
+    return res.status(500).json({
+      message: "Authentication service error"
     });
   }
 };
